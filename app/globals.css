@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-primary: #0A1628;
+    --brand-secondary: #0066FF;
+    --brand-success: #00C853;
+    --brand-background: #F5F7FA;
+    --brand-danger: #FF3B30;
+    --brand-warning: #FF9500;
+    --brand-border: #E2E8F0;
+    --brand-text: #0A1628;
+    --brand-text-muted: #64748B;
+    --sidebar-width: 260px;
+  }
+
+  .dark {
+    --brand-background: #0A0F1A;
+    --brand-border: #1E2A3B;
+    --brand-text: #F1F5F9;
+    --brand-text-muted: #94A3B8;
+  }
+
+  * {
+    border-color: var(--brand-border);
+  }
+
+  body {
+    background-color: var(--brand-background);
+    color: var(--brand-text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+}
+
+@layer components {
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success  { @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400; }
+  .badge-warning  { @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400; }
+  .badge-danger   { @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400; }
+  .badge-info     { @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400; }
+  .badge-default  { @apply bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300; }
+  .badge-primary  { @apply bg-[#0066FF]/10 text-[#0066FF] dark:bg-[#0066FF]/20; }
+
+  /* Card */
+  .card {
+    @apply bg-white dark:bg-[#0F1C2E] border border-[#E2E8F0] dark:border-[#1E2A3B] rounded-xl;
+  }
+
+  /* Page header */
+  .page-header {
+    @apply flex items-center justify-between mb-6;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-[#0A1628] dark:text-white;
+  }
+  .page-subtitle {
+    @apply text-sm text-[#64748B] dark:text-slate-400 mt-0.5;
+  }
+
+  /* Form inputs */
+  .form-input {
+    @apply w-full px-3 py-2 text-sm border border-[#E2E8F0] dark:border-[#1E2A3B] 
+           rounded-lg bg-white dark:bg-[#0F1C2E] text-[#0A1628] dark:text-white
+           focus:outline-none focus:ring-2 focus:ring-[#0066FF]/40 focus:border-[#0066FF]
+           placeholder:text-[#94A3B8] transition-colors;
+  }
+  .form-label {
+    @apply block text-sm font-medium text-[#0A1628] dark:text-slate-200 mb-1.5;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-[#0066FF] hover:bg-[#0052CC]
+           text-white text-sm font-medium rounded-lg transition-colors
+           focus:outline-none focus:ring-2 focus:ring-[#0066FF]/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#0F1C2E] 
+           hover:bg-slate-50 dark:hover:bg-[#1E2A3B] border border-[#E2E8F0] dark:border-[#1E2A3B]
+           text-[#0A1628] dark:text-white text-sm font-medium rounded-lg transition-colors
+           focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600
+           text-white text-sm font-medium rounded-lg transition-colors
+           focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:opacity-50;
+  }
+
+  /* Stat card */
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+  .stat-label {
+    @apply text-xs font-medium text-[#64748B] dark:text-slate-400 uppercase tracking-wider;
+  }
+  .stat-value {
+    @apply text-2xl font-bold text-[#0A1628] dark:text-white;
+  }
+
+  /* Search result item */
+  .result-item {
+    @apply flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-[#1E2A3B]/50 transition-colors;
+  }
+
+  /* Table */
+  .data-table {
+    @apply w-full text-sm;
+  }
+  .data-table thead tr {
+    @apply border-b border-[#E2E8F0] dark:border-[#1E2A3B];
+  }
+  .data-table thead th {
+    @apply px-4 py-3 text-left text-xs font-semibold text-[#64748B] dark:text-slate-400 uppercase tracking-wider;
+  }
+  .data-table tbody tr {
+    @apply border-b border-[#E2E8F0] dark:border-[#1E2A3B] hover:bg-slate-50 dark:hover:bg-[#1E2A3B]/50 transition-colors;
+  }
+  .data-table tbody td {
+    @apply px-4 py-3 text-[#0A1628] dark:text-slate-200;
+  }
+}
