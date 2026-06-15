@@ -49,7 +49,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
   }
 
   const totalBilled = (contractInvoices ?? []).reduce((s, ci) => {
-    const inv = ci.invoice as { total: number } | null
+    const inv = (ci.invoice as unknown) as { total: number } | null
     return s + (inv?.total ?? 0)
   }, 0)
 
