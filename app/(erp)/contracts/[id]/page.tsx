@@ -141,7 +141,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
                 </thead>
                 <tbody>
                   {(contractInvoices ?? []).map((ci) => {
-                    const inv = ci.invoice as { id: string; invoice_number: string; status: string; total: number; amount_paid: number; outstanding_balance: number } | null
+                    const inv = (ci.invoice as unknown) as { id: string; invoice_number: string; status: string; total: number; amount_paid: number; outstanding_balance: number } | null
                     return (
                       <tr key={ci.id}>
                         <td className="font-mono text-sm font-semibold text-[#0066FF]">
