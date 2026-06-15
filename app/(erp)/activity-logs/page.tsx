@@ -123,7 +123,7 @@ export default async function AuditTrailPage({
               </thead>
               <tbody>
                 {(logs ?? []).map((log) => {
-                  const user = log.user as { full_name: string; email: string; role: string } | null
+                 const user = (log.user as unknown) as { full_name: string; email: string; role: string } | null
                   return (
                     <tr key={log.id}>
                       <td className="text-xs text-slate-500 whitespace-nowrap">
