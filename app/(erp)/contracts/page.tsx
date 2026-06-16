@@ -139,7 +139,7 @@ export default async function ContractsPage({
               </thead>
               <tbody>
                 {(contracts ?? []).map((contract) => {
-const customer = (contract.customer as unknown) as { id: string; company_name: string; contact_person: string | null } | null
+                  const customer = contract.customer as { id: string; company_name: string; contact_person: string | null } | null
                   const endDate = new Date(contract.end_date)
                   const isExpiringSoon = endDate < new Date(thirtyDaysFromNow) && contract.status === 'active'
                   const isExpired = endDate < now && contract.status === 'active'

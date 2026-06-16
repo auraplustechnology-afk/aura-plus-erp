@@ -12,6 +12,8 @@ const ROUTE_ROLES: Record<string, UserRole[]> = {
   '/projects':      ['super_admin', 'sales', 'manager'],
   '/tickets':       ['super_admin', 'sales', 'manager'],
   '/contracts':     ['super_admin', 'sales', 'accountant', 'manager'],
+  '/expenses':      ['super_admin', 'sales', 'accountant', 'manager', 'technician'],
+  '/assets':        ['super_admin', 'sales', 'accountant', 'manager', 'technician'],
   '/reports':       ['super_admin', 'manager', 'accountant'],
   '/activity-logs': ['super_admin', 'manager'],
   '/search':        ['super_admin', 'sales', 'accountant', 'manager'],

@@ -8,11 +8,11 @@ const nextConfig: NextConfig = {
     ],
   },
   // Supress specific warnings in production
- typescript: {
-    ignoreBuildErrors: true,
+  typescript: {
+    ignoreBuildErrors: false,
   },
-eslint: {
-    ignoreDuringBuilds: true,
+  eslint: {
+    ignoreDuringBuilds: false,
   },
   // Headers for security
   async headers() {

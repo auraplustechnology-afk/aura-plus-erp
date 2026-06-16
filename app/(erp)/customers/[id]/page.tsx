@@ -247,7 +247,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                   <div className="w-1.5 h-1.5 rounded-full bg-[#0066FF] mt-1.5 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs text-[#0A1628] dark:text-slate-200">
-                      <span className="font-medium">{((log as unknown) as { users?: { full_name: string } }).users?.full_name ?? 'System'}</span>
+                      <span className="font-medium">{(log as { users?: { full_name: string } }).users?.full_name ?? 'System'}</span>
                       {' '}{log.action.replace('_', ' ')}{' '}
                       <span className="text-slate-400">{log.entity_type}</span>
                       {log.entity_label && <span className="text-[#0066FF]"> {log.entity_label}</span>}

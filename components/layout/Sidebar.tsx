@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Users, FileText, Receipt, Package,
+  LayoutDashboard, Users, FileText, Receipt, Package, DollarSign,
   FolderKanban, Headphones, BarChart3, Settings,
-  UserCog, Wrench, FileCheck, Shield, ChevronRight,
+  UserCog, Wrench, FileCheck, Shield, ChevronRight, AlertCircle,
   X
 } from 'lucide-react'
 import type { User, UserRole } from '@/types'
@@ -61,6 +61,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['super_admin', 'accountant', 'manager', 'sales'],
   },
   {
+    label: 'Expenses',
+    href: '/expenses',
+    icon: <DollarSign className="w-4 h-4" />,
+    roles: ['super_admin', 'accountant', 'manager', 'sales'],
+  },
+  {
     label: 'Inventory',
     href: '/inventory',
     icon: <Package className="w-4 h-4" />,
@@ -83,6 +89,18 @@ const NAV_ITEMS: NavItem[] = [
     href: '/contracts',
     icon: <FileCheck className="w-4 h-4" />,
     roles: ['super_admin', 'sales', 'accountant', 'manager'],
+  },
+  {
+    label: 'Asset Register',
+    href: '/assets',
+    icon: <Shield className="w-4 h-4" />,
+    roles: ['super_admin', 'sales', 'manager', 'technician'],
+  },
+  {
+    label: 'Overdue Invoices',
+    href: '/invoices/overdue',
+    icon: <AlertCircle className="w-4 h-4" />,
+    roles: ['super_admin', 'accountant', 'manager', 'sales'],
   },
   {
     label: 'Reports',

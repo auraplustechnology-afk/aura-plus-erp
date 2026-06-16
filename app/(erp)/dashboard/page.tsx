@@ -1,384 +1,213 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import {
-  TrendingUp, TrendingDown, DollarSign, Users, FileText,
-  Package, FolderKanban, Headphones, AlertTriangle, CheckCircle,
-  Clock, ArrowUpRight
-} from 'lucide-react'
 import Link from 'next/link'
-import type { User } from '@/types'
-import { formatCurrency, formatNumber } from '@/lib/utils/format'
+import {
+  TrendingUp, DollarSign, Users, FileText,
+  Package, FolderKanban, Headphones,
+  ArrowUpRight, Calendar, BarChart3, Target, Receipt
+} from 'lucide-react'
+import { formatCurrency } from '@/lib/utils/format'
 import RecentActivityWidget from '@/components/modules/RecentActivityWidget'
+import DailySummaryWidget from '@/components/modules/dashboard/DailySummaryWidget'
+import SalesPeriodCards from '@/components/modules/dashboard/SalesPeriodCards'
 
-async function getDashboardData(userId: string, role: string) {
-  const supabase = await createClient()
-
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).toISOString()
-
-  const [
-    // Revenue metrics
-    revenueThisMonth,
-    revenueLastMonth,
-    // CRM metrics
-    totalLeads,
-    leadsThisMonth,
-    wonLeads,
-    // Quote metrics
-    quotesSent,
-    quotesAccepted,
-    // Inventory
-    lowStockProducts,
-    // Projects
-    activeProjects,
-    pendingProjects,
-    // Tickets
-    openTickets,
-    overdueTickets,
-    // Recent invoices
-    recentInvoices,
-    // Recent leads
-    recentLeads,
-  ] = await Promise.all([
-    supabase.from('invoices').select('total').gte('created_at', startOfMonth).eq('status', 'paid'),
-    supabase.from('invoices').select('total').gte('created_at', startOfLastMonth).lte('created_at', endOfLastMonth).eq('status', 'paid'),
-    supabase.from('leads').select('id', { count: 'exact' }).is('deleted_at', null),
-    supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', startOfMonth).is('deleted_at', null),
-    supabase.from('leads').select('id', { count: 'exact' }).eq('stage', 'won').is('deleted_at', null),
-    supabase.from('quotations').select('id', { count: 'exact' }).eq('status', 'sent').is('deleted_at', null),
-    supabase.from('quotations').select('id', { count: 'exact' }).eq('status', 'accepted').is('deleted_at', null),
-    supabase.from('products').select('id, product_name, quantity_in_stock, reorder_level').filter('quantity_in_stock', 'lte', 'reorder_level').eq('is_active', true).limit(5),
-    supabase.from('projects').select('id', { count: 'exact' }).eq('status', 'in_progress').is('deleted_at', null),
-    supabase.from('projects').select('id', { count: 'exact' }).eq('status', 'pending').is('deleted_at', null),
-    supabase.from('support_tickets').select('id', { count: 'exact' }).in('status', ['open', 'assigned', 'in_progress']).is('deleted_at', null),
-    supabase.from('support_tickets').select('id', { count: 'exact' }).lt('sla_due_at', now.toISOString()).in('status', ['open', 'assigned', 'in_progress']).is('deleted_at', null),
-    supabase.from('invoices').select('invoice_number, total, status, customers(company_name), created_at').order('created_at', { ascending: false }).limit(5).is('deleted_at', null),
-    supabase.from('leads').select('company_name, stage, expected_value, created_at').order('created_at', { ascending: false }).limit(5).is('deleted_at', null),
-  ])
-
-  const thisMonthRevenue = (revenueThisMonth.data ?? []).reduce((sum, i) => sum + (i.total ?? 0), 0)
-  const lastMonthRevenue = (revenueLastMonth.data ?? []).reduce((sum, i) => sum + (i.total ?? 0), 0)
-  const revenueGrowth = lastMonthRevenue > 0
-    ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-    : 0
-
-  const totalQuotes = (quotesSent.count ?? 0) + (quotesAccepted.count ?? 0)
-  const conversionRate = totalQuotes > 0 ? ((quotesAccepted.count ?? 0) / totalQuotes * 100) : 0
-
-  return {
-    revenue: { thisMonth: thisMonthRevenue, lastMonth: lastMonthRevenue, growth: revenueGrowth },
-    crm: { total: totalLeads.count ?? 0, thisMonth: leadsThisMonth.count ?? 0, won: wonLeads.count ?? 0 },
-    quotes: { sent: quotesSent.count ?? 0, accepted: quotesAccepted.count ?? 0, conversionRate },
-    inventory: { lowStock: lowStockProducts.data ?? [] },
-    projects: { active: activeProjects.count ?? 0, pending: pendingProjects.count ?? 0 },
-    tickets: { open: openTickets.count ?? 0, overdue: overdueTickets.count ?? 0 },
-    recentInvoices: recentInvoices.data ?? [],
-    recentLeads: recentLeads.data ?? [],
-  }
-}
-
-const STAGE_COLORS: Record<string, string> = {
-  new_lead: 'badge-info',
-  contacted: 'badge-default',
-  follow_up: 'badge-warning',
-  quote_sent: 'badge-primary',
-  won: 'badge-success',
-  lost: 'badge-danger',
-  ghosted: 'badge-default',
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'badge-default',
-  sent: 'badge-info',
-  paid: 'badge-success',
-  partially_paid: 'badge-warning',
-  overdue: 'badge-danger',
-}
+export const metadata = { title: 'Dashboard — Aura Plus ERP' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) redirect('/login')
 
-  const { data: userData } = await supabase.from('users').select('*').eq('id', authUser.id).single()
-  if (!userData) redirect('/login')
+  const { data: currentUser } = await supabase
+    .from('users').select('*').eq('id', authUser.id).single()
 
-  const data = await getDashboardData(authUser.id, userData.role)
-  const user = userData as User
+  const role = currentUser?.role ?? 'sales'
+  const now = new Date()
+
+  const todayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const weekStart   = new Date(now.getTime() - 7 * 24 * 3600000).toISOString()
+  const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const yearStart   = new Date(now.getFullYear(), 0, 1).toISOString()
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0).toISOString()
+  const todayDate   = todayStart.split('T')[0]
+  const weekDate    = weekStart.split('T')[0]
+  const monthDate   = monthStart.split('T')[0]
+  const yearDate    = yearStart.split('T')[0]
+
+  const [
+    todaySales, weekSales, monthSales, yearSales, lastMonthSales,
+    todayExpenses, weekExpenses, monthExpenses, yearExpenses,
+    todayLeads, weekLeads, monthLeads,
+    openTickets, activeProjects, lowStock,
+    recentInvoices, outstanding,
+  ] = await Promise.all([
+    supabase.from('invoices').select('total').eq('status', 'paid').gte('paid_at', todayStart).is('deleted_at', null),
+    supabase.from('invoices').select('total').eq('status', 'paid').gte('paid_at', weekStart).is('deleted_at', null),
+    supabase.from('invoices').select('total').eq('status', 'paid').gte('paid_at', monthStart).is('deleted_at', null),
+    supabase.from('invoices').select('total').eq('status', 'paid').gte('paid_at', yearStart).is('deleted_at', null),
+    supabase.from('invoices').select('total').eq('status', 'paid').gte('paid_at', lastMonthStart).lte('paid_at', lastMonthEnd).is('deleted_at', null),
+    supabase.from('expenses').select('amount').gte('expense_date', todayDate).is('deleted_at', null),
+    supabase.from('expenses').select('amount').gte('expense_date', weekDate).is('deleted_at', null),
+    supabase.from('expenses').select('amount').gte('expense_date', monthDate).is('deleted_at', null),
+    supabase.from('expenses').select('amount').gte('expense_date', yearDate).is('deleted_at', null),
+    supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', todayStart).is('deleted_at', null),
+    supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', weekStart).is('deleted_at', null),
+    supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', monthStart).is('deleted_at', null),
+    supabase.from('support_tickets').select('id', { count: 'exact' }).in('status', ['open', 'assigned', 'in_progress']).is('deleted_at', null),
+    supabase.from('projects').select('id', { count: 'exact' }).in('status', ['pending', 'scheduled', 'in_progress']).is('deleted_at', null),
+    supabase.from('products').select('id', { count: 'exact' }).lte('quantity_in_stock', 5).eq('is_active', true),
+    supabase.from('invoices').select('id, invoice_number, total, status, created_at, customers:customer_id(company_name)').is('deleted_at', null).order('created_at', { ascending: false }).limit(5),
+    supabase.from('invoices').select('outstanding_balance').not('status', 'eq', 'paid').is('deleted_at', null),
+  ])
+
+  const sum = (data: { total?: number; amount?: number }[] | null) =>
+    (data ?? []).reduce((s: number, i) => s + (i.total ?? i.amount ?? 0), 0)
+
+  const todayRev  = sum(todaySales.data)
+  const weekRev   = sum(weekSales.data)
+  const monthRev  = sum(monthSales.data)
+  const yearRev   = sum(yearSales.data)
+  const lastMRev  = sum(lastMonthSales.data)
+  const todayExp  = sum(todayExpenses.data)
+  const weekExp   = sum(weekExpenses.data)
+  const monthExp  = sum(monthExpenses.data)
+  const yearExp   = sum(yearExpenses.data)
+  const monthChange = lastMRev > 0 ? Math.round(((monthRev - lastMRev) / lastMRev) * 100) : 0
+  const totalOutstanding = ((outstanding.data ?? []) as { outstanding_balance: number }[]).reduce((s, i) => s + (i.outstanding_balance ?? 0), 0)
+
+  const isManager = ['super_admin', 'manager', 'accountant'].includes(role)
+  const isSales   = ['super_admin', 'sales', 'manager'].includes(role)
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#0A1628] dark:text-white">
-          Good {getTimeOfDay()}, {user.full_name.split(' ')[0]} 👋
+        <h1 className="page-title">
+          Good {now.getHours() < 12 ? 'morning' : now.getHours() < 17 ? 'afternoon' : 'evening'}, {currentUser?.full_name?.split(' ')[0]} 👋
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Here's what's happening at Aura Plus Technologies today.
+        <p className="page-subtitle">
+          {now.toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
 
-      {/* Revenue cards */}
-      {['super_admin', 'manager', 'accountant'].includes(user.role) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Revenue This Month"
-            value={formatCurrency(data.revenue.thisMonth)}
-            change={data.revenue.growth}
-            icon={<DollarSign className="w-5 h-5" />}
-            color="blue"
-            href="/invoices"
-          />
-          <StatCard
-            label="Revenue Last Month"
-            value={formatCurrency(data.revenue.lastMonth)}
-            icon={<DollarSign className="w-5 h-5" />}
-            color="slate"
-            href="/invoices"
-          />
-          <StatCard
-            label="Active Projects"
-            value={data.projects.active}
-            sub={`${data.projects.pending} pending`}
-            icon={<FolderKanban className="w-5 h-5" />}
-            color="indigo"
-            href="/projects"
-          />
-          <StatCard
-            label="Open Tickets"
-            value={data.tickets.open}
-            sub={data.tickets.overdue > 0 ? `${data.tickets.overdue} overdue` : undefined}
-            subDanger={data.tickets.overdue > 0}
-            icon={<Headphones className="w-5 h-5" />}
-            color={data.tickets.overdue > 0 ? 'red' : 'slate'}
-            href="/tickets"
-          />
+      {isManager && (
+        <DailySummaryWidget
+          todayRevenue={todayRev}
+          todayExpenses={todayExp}
+          todayProfit={todayRev - todayExp}
+          todayLeads={todayLeads.count ?? 0}
+          todayTransactions={todaySales.data?.length ?? 0}
+        />
+      )}
+
+      {isManager && (
+        <SalesPeriodCards
+          daily={{   revenue: todayRev, expenses: todayExp, profit: todayRev - todayExp, transactions: todaySales.data?.length ?? 0 }}
+          weekly={{  revenue: weekRev,  expenses: weekExp,  profit: weekRev - weekExp,   transactions: weekSales.data?.length ?? 0 }}
+          monthly={{ revenue: monthRev, expenses: monthExp, profit: monthRev - monthExp, transactions: monthSales.data?.length ?? 0 }}
+          yearly={{  revenue: yearRev,  expenses: yearExp,  profit: yearRev - yearExp,   transactions: yearSales.data?.length ?? 0 }}
+          monthChange={monthChange}
+        />
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {isManager && (
+          <>
+            <StatCard label="This Month Revenue" value={formatCurrency(monthRev)}
+              sub={monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs last month` : undefined}
+              subDanger={monthChange < 0} icon={<DollarSign className="w-5 h-5" />} color="green" href="/invoices" />
+            <StatCard label="This Month Profit" value={formatCurrency(monthRev - monthExp)}
+              sub={`Expenses: ${formatCurrency(monthExp)}`} subDanger={monthRev - monthExp < 0}
+              icon={<TrendingUp className="w-5 h-5" />} color={monthRev - monthExp >= 0 ? 'blue' : 'red'} href="/expenses" />
+            <StatCard label="Outstanding" value={formatCurrency(totalOutstanding)}
+              sub="Unpaid invoices" subDanger={totalOutstanding > 0}
+              icon={<Receipt className="w-5 h-5" />} color={totalOutstanding > 0 ? 'red' : 'green'} href="/invoices" />
+          </>
+        )}
+        {isSales && (
+          <StatCard label="Leads This Month" value={monthLeads.count ?? 0}
+            sub={`${todayLeads.count ?? 0} today`} icon={<Target className="w-5 h-5" />} color="purple" href="/crm" />
+        )}
+        <StatCard label="Active Projects" value={activeProjects.count ?? 0}
+          sub="In progress" icon={<FolderKanban className="w-5 h-5" />} color="blue" href="/projects" />
+        <StatCard label="Open Tickets" value={openTickets.count ?? 0}
+          subDanger={(openTickets.count ?? 0) > 0} icon={<Headphones className="w-5 h-5" />}
+          color={(openTickets.count ?? 0) > 0 ? 'red' : 'green'} href="/tickets" />
+        {isManager && (
+          <StatCard label="Low Stock" value={lowStock.count ?? 0}
+            subDanger={(lowStock.count ?? 0) > 0} icon={<Package className="w-5 h-5" />}
+            color={(lowStock.count ?? 0) > 0 ? 'red' : 'green'} href="/inventory" />
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'New Quote',    href: '/quotations/new', icon: <FileText className="w-4 h-4" />,     roles: ['super_admin','sales','manager'] },
+          { label: 'New Invoice',  href: '/invoices/new',   icon: <Receipt className="w-4 h-4" />,      roles: ['super_admin','accountant','manager','sales'] },
+          { label: 'New Expense',  href: '/expenses/new',   icon: <DollarSign className="w-4 h-4" />,   roles: ['super_admin','sales','manager','accountant','technician'] },
+          { label: 'New Lead',     href: '/crm',            icon: <Users className="w-4 h-4" />,        roles: ['super_admin','sales','manager'] },
+          { label: 'New Project',  href: '/projects/new',   icon: <FolderKanban className="w-4 h-4" />, roles: ['super_admin','sales','manager'] },
+          { label: 'New Ticket',   href: '/tickets/new',    icon: <Headphones className="w-4 h-4" />,   roles: ['super_admin','sales','manager'] },
+          { label: 'Reports',      href: '/reports',        icon: <BarChart3 className="w-4 h-4" />,    roles: ['super_admin','manager','accountant'] },
+          { label: 'Daily Report', href: '/reports/daily',  icon: <Calendar className="w-4 h-4" />,     roles: ['super_admin','manager'] },
+        ].filter(item => item.roles.includes(role)).map(item => (
+          <Link key={item.href} href={item.href}
+            className="card flex items-center gap-2.5 px-4 py-3 hover:shadow-md transition-all group text-sm font-medium text-[#0A1628] dark:text-white hover:text-[#0066FF]">
+            <span className="text-[#0066FF] group-hover:scale-110 transition-transform">{item.icon}</span>
+            {item.label}
+            <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-slate-300 group-hover:text-[#0066FF] transition-colors" />
+          </Link>
+        ))}
+      </div>
+
+      {isManager && (recentInvoices.data ?? []).length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
+            <h3 className="font-semibold text-sm text-[#0A1628] dark:text-white">Recent Invoices</h3>
+            <Link href="/invoices" className="text-xs text-[#0066FF] hover:underline font-medium flex items-center gap-1">
+              View all <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <table className="data-table">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              {(recentInvoices.data ?? []).map((inv) => {
+                const customer = (inv.customers as unknown) as { company_name: string } | null
+                return (
+                  <tr key={inv.id}>
+                    <td><Link href={`/invoices/${inv.id}`} className="font-mono text-xs font-semibold text-[#0066FF] hover:underline">{inv.invoice_number}</Link></td>
+                    <td className="text-sm text-slate-500">{customer?.company_name ?? '—'}</td>
+                    <td className="font-semibold text-sm">{formatCurrency(inv.total)}</td>
+                    <td><span className={`badge text-xs ${inv.status === 'paid' ? 'badge-success' : inv.status === 'overdue' ? 'badge-danger' : 'badge-default'}`}>{inv.status}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* CRM + Quotes row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* CRM metrics */}
-        {['super_admin', 'sales', 'manager'].includes(user.role) && (
-          <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-[#0A1628] dark:text-white text-sm">CRM Overview</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Lead pipeline summary</p>
-              </div>
-              <Link href="/crm" className="text-xs text-[#0066FF] hover:underline font-medium">View all →</Link>
-            </div>
-            <div className="space-y-3">
-              <MetricRow label="Total Leads" value={data.crm.total} icon={<Users className="w-4 h-4 text-blue-500" />} />
-              <MetricRow label="New This Month" value={data.crm.thisMonth} icon={<TrendingUp className="w-4 h-4 text-green-500" />} />
-              <MetricRow label="Won Leads" value={data.crm.won} icon={<CheckCircle className="w-4 h-4 text-green-500" />} />
-            </div>
-          </div>
-        )}
-
-        {/* Quote metrics */}
-        {['super_admin', 'sales', 'manager'].includes(user.role) && (
-          <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-[#0A1628] dark:text-white text-sm">Quotations</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Quote pipeline</p>
-              </div>
-              <Link href="/quotations" className="text-xs text-[#0066FF] hover:underline font-medium">View all →</Link>
-            </div>
-            <div className="space-y-3">
-              <MetricRow label="Quotes Sent" value={data.quotes.sent} icon={<FileText className="w-4 h-4 text-blue-500" />} />
-              <MetricRow label="Quotes Accepted" value={data.quotes.accepted} icon={<CheckCircle className="w-4 h-4 text-green-500" />} />
-              <MetricRow label="Conversion Rate" value={`${data.quotes.conversionRate.toFixed(1)}%`} icon={<TrendingUp className="w-4 h-4 text-purple-500" />} />
-            </div>
-          </div>
-        )}
-
-        {/* Low stock alerts */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-[#0A1628] dark:text-white text-sm">Low Stock Alerts</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Items below reorder level</p>
-            </div>
-            <Link href="/inventory" className="text-xs text-[#0066FF] hover:underline font-medium">View all →</Link>
-          </div>
-          {data.inventory.lowStock.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <CheckCircle className="w-8 h-8 text-green-400 mb-2" />
-              <p className="text-sm text-slate-500">All stock levels are healthy</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {data.inventory.lowStock.map((product: { id: string; product_name: string; quantity_in_stock: number; reorder_level: number }) => (
-                <div key={product.id} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                    <span className="text-sm text-[#0A1628] dark:text-slate-200 truncate">{product.product_name}</span>
-                  </div>
-                  <span className="text-xs font-medium text-red-500 flex-shrink-0 ml-2">
-                    {product.quantity_in_stock} / {product.reorder_level}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent activity row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent invoices */}
-        {['super_admin', 'accountant', 'manager', 'sales'].includes(user.role) && (
-          <div className="card">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
-              <h3 className="font-semibold text-[#0A1628] dark:text-white text-sm">Recent Invoices</h3>
-              <Link href="/invoices" className="text-xs text-[#0066FF] hover:underline font-medium flex items-center gap-1">
-                View all <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="divide-y divide-[#E2E8F0] dark:divide-[#1E2A3B]">
-              {data.recentInvoices.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">No invoices yet</div>
-              ) : (
-                data.recentInvoices.map((inv: {
-                  invoice_number: string;
-                  total: number;
-                  status: string;
-                  customers: { company_name: string } | null;
-                  created_at: string;
-                }) => (
-                  <div key={inv.invoice_number} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-[#1E2A3B]/50 transition-colors">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#0A1628] dark:text-white">{inv.invoice_number}</div>
-                      <div className="text-xs text-slate-400 truncate">{inv.customers?.company_name}</div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      <div className="text-sm font-semibold text-[#0A1628] dark:text-white">{formatCurrency(inv.total)}</div>
-                      <span className={`badge ${STATUS_COLORS[inv.status] ?? 'badge-default'}`}>{inv.status.replace('_', ' ')}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Recent leads */}
-        {['super_admin', 'sales', 'manager'].includes(user.role) && (
-          <div className="card">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
-              <h3 className="font-semibold text-[#0A1628] dark:text-white text-sm">Recent Leads</h3>
-              <Link href="/crm" className="text-xs text-[#0066FF] hover:underline font-medium flex items-center gap-1">
-                View all <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="divide-y divide-[#E2E8F0] dark:divide-[#1E2A3B]">
-              {data.recentLeads.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">No leads yet</div>
-              ) : (
-                data.recentLeads.map((lead: {
-                  company_name: string;
-                  stage: string;
-                  expected_value: number;
-                  created_at: string;
-                }, i: number) => (
-                  <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 dark:hover:bg-[#1E2A3B]/50 transition-colors">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#0A1628] dark:text-white truncate">{lead.company_name}</div>
-                      <span className={`badge ${STAGE_COLORS[lead.stage] ?? 'badge-default'} mt-0.5`}>
-                        {lead.stage.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      <div className="text-sm font-semibold text-[#0A1628] dark:text-white">{formatCurrency(lead.expected_value)}</div>
-                      <div className="text-xs text-slate-400 flex items-center gap-1 justify-end">
-                        <Clock className="w-3 h-3" />
-                        {formatRelativeDate(lead.created_at)}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Activity */}
       <RecentActivityWidget />
     </div>
   )
 }
 
-// ---- Sub-components ----
-
-function StatCard({ label, value, change, sub, subDanger, icon, color, href }: {
-  label: string
-  value: string | number
-  change?: number
-  sub?: string
-  subDanger?: boolean
-  icon: React.ReactNode
-  color: string
-  href: string
+function StatCard({ label, value, sub, subDanger, icon, color, href }: {
+  label: string; value: string | number; sub?: string; subDanger?: boolean
+  icon: React.ReactNode; color: string; href: string
 }) {
-  const colorMap: Record<string, string> = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    slate: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-    indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+  const colors: Record<string, string> = {
+    green:  'bg-green-50 dark:bg-green-950/20 text-green-600',
+    blue:   'bg-blue-50 dark:bg-blue-950/20 text-blue-600',
+    red:    'bg-red-50 dark:bg-red-950/20 text-red-500',
+    purple: 'bg-purple-50 dark:bg-purple-950/20 text-purple-600',
   }
-
   return (
-    <Link href={href} className="stat-card hover:shadow-md transition-shadow group">
-      <div className="flex items-center justify-between">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorMap[color] ?? colorMap.slate}`}>
-          {icon}
-        </div>
-        {change !== undefined && (
-          <div className={`flex items-center gap-1 text-xs font-medium ${change >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-            {change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            {Math.abs(change).toFixed(1)}%
-          </div>
-        )}
-      </div>
+    <Link href={href} className="stat-card hover:shadow-md transition-all group cursor-pointer">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${colors[color] ?? colors.blue}`}>{icon}</div>
       <div className="stat-value group-hover:text-[#0066FF] transition-colors">{value}</div>
       <div className="stat-label">{label}</div>
-      {sub && (
-        <div className={`text-xs mt-0.5 ${subDanger ? 'text-red-500 font-medium' : 'text-slate-400'}`}>{sub}</div>
-      )}
+      {sub && <div className={`text-xs mt-1 ${subDanger ? 'text-red-500' : 'text-slate-400'}`}>{sub}</div>}
     </Link>
   )
 }
-
-function MetricRow({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between py-1">
-      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        {icon}
-        {label}
-      </div>
-      <span className="text-sm font-semibold text-[#0A1628] dark:text-white">{value}</span>
-    </div>
-  )
-}
-
-function getTimeOfDay() {
-  const h = new Date().getHours()
-  if (h < 12) return 'morning'
-  if (h < 17) return 'afternoon'
-  return 'evening'
-}
-
-function formatRelativeDate(dateStr: string) {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000 / 60)
-  if (diff < 60) return `${diff}m ago`
-  if (diff < 60 * 24) return `${Math.floor(diff / 60)}h ago`
-  return `${Math.floor(diff / 60 / 24)}d ago`
-}
-
