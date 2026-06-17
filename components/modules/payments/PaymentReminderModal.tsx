@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageCircle, X, Loader2, CheckCircle2, Phone, Mail, Users, Copy } from 'lucide-react'
-import { logPaymentReminder, buildWhatsAppMessage } from '@/lib/actions/payment-reminders'
+import { logPaymentReminder } from '@/lib/actions/payment-reminders'
+import { buildWhatsAppMessage } from '@/lib/utils/whatsapp'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import type { ReminderType } from '@/lib/actions/payment-reminders'
 
@@ -94,7 +95,6 @@ export default function PaymentReminderModal({
       {open && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#0F1C2E] rounded-2xl w-full max-w-md shadow-2xl">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
               <div>
                 <h2 className="font-semibold text-[#0A1628] dark:text-white">Payment Follow-Up</h2>
@@ -110,7 +110,6 @@ export default function PaymentReminderModal({
 
             <div className="p-6">
               {step === 'type' ? (
-                /* Step 1: Choose type */
                 <div className="space-y-4">
                   <p className="text-sm text-slate-500">How are you contacting this customer?</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -129,7 +128,6 @@ export default function PaymentReminderModal({
                     ))}
                   </div>
 
-                  {/* WhatsApp message preview */}
                   {selectedType === 'whatsapp' && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -143,7 +141,7 @@ export default function PaymentReminderModal({
                         {waMessage}
                       </div>
                       {customerPhone && (
-                        <a
+                        
                           href={`https://wa.me/${customerPhone.replace(/\s+/g, '').replace('+', '')}?text=${encodeURIComponent(waMessage)}`}
                           target="_blank" rel="noopener noreferrer"
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-colors"
@@ -162,7 +160,6 @@ export default function PaymentReminderModal({
                   </button>
                 </div>
               ) : (
-                /* Step 2: Log details */
                 <div className="space-y-4">
                   <div className="bg-slate-50 dark:bg-[#1E2A3B] rounded-xl px-4 py-3 text-sm text-slate-500">
                     Logging: <strong className="text-[#0A1628] dark:text-white capitalize">{selectedType.replace('_', ' ')}</strong> reminder to <strong className="text-[#0A1628] dark:text-white">{customerName}</strong>
