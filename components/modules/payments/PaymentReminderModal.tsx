@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageCircle, X, Loader2, CheckCircle2, Phone, Mail, Users, Copy } from 'lucide-react'
+import { MessageCircle, X, Loader2, CheckCircle2, Phone, Mail, Users } from 'lucide-react'
 import { logPaymentReminder } from '@/lib/actions/payment-reminders'
-import { buildWhatsAppMessage } from '@/lib/utils/whatsapp'
-import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { formatCurrency } from '@/lib/utils/format'
 import type { ReminderType } from '@/lib/actions/payment-reminders'
 
 interface Props {
@@ -22,43 +21,25 @@ interface Props {
   reminderCount: number
 }
 
-const REMINDER_TYPES: { value: ReminderType; label: string; icon: React.ReactNode; color: string }[] = [
-  { value: 'whatsapp',  label: 'WhatsApp',   icon: <MessageCircle className="w-4 h-4" />, color: 'bg-green-500 hover:bg-green-600 text-white' },
-  { value: 'call',      label: 'Phone Call',  icon: <Phone className="w-4 h-4" />,         color: 'bg-blue-500 hover:bg-blue-600 text-white' },
-  { value: 'email',     label: 'Email',       icon: <Mail className="w-4 h-4" />,           color: 'bg-purple-500 hover:bg-purple-600 text-white' },
-  { value: 'in_person', label: 'In Person',   icon: <Users className="w-4 h-4" />,          color: 'bg-amber-500 hover:bg-amber-600 text-white' },
+const REMINDER_TYPES: { value: ReminderType; label: string; icon: React.ReactNode }[] = [
+  { value: 'call',      label: 'Phone Call', icon: <Phone className="w-4 h-4" /> },
+  { value: 'email',     label: 'Email',      icon: <Mail className="w-4 h-4" /> },
+  { value: 'in_person', label: 'In Person',  icon: <Users className="w-4 h-4" /> },
 ]
 
 export default function PaymentReminderModal({
-  invoiceId, invoiceNumber, customerId, customerName, customerPhone,
-  outstanding, dueDate, daysOverdue, companyName, companyPhone, reminderCount
+  invoiceId, invoiceNumber, customerId, customerName,
+  outstanding, reminderCount
 }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<'type' | 'log'>('type')
-  const [selectedType, setSelectedType] = useState<ReminderType>('whatsapp')
+  const [selectedType, setSelectedType] = useState<ReminderType>('call')
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [form, setForm] = useState({
     response_received: '',
     next_follow_up_date: '',
   })
-
-  const waMessage = buildWhatsAppMessage({
-    customerName,
-    invoiceNumber,
-    amount: formatCurrency(outstanding),
-    dueDate: dueDate ? formatDate(dueDate) : 'N/A',
-    daysOverdue,
-    companyName,
-    companyPhone,
-  })
-
-  function copyMessage() {
-    navigator.clipboard.writeText(waMessage)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   async function handleLog() {
     setLoading(true)
@@ -66,7 +47,6 @@ export default function PaymentReminderModal({
       invoice_id: invoiceId,
       customer_id: customerId,
       reminder_type: selectedType,
-      message_sent: selectedType === 'whatsapp' ? waMessage : undefined,
       response_received: form.response_received || undefined,
       next_follow_up_date: form.next_follow_up_date || null,
     })
@@ -112,12 +92,12 @@ export default function PaymentReminderModal({
               {step === 'type' ? (
                 <div className="space-y-4">
                   <p className="text-sm text-slate-500">How are you contacting this customer?</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     {REMINDER_TYPES.map(type => (
                       <button
                         key={type.value}
                         onClick={() => setSelectedType(type.value)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-xs font-medium transition-all ${
                           selectedType === type.value
                             ? 'border-[#0066FF] bg-[#0066FF]/5 text-[#0066FF]'
                             : 'border-[#E2E8F0] dark:border-[#1E2A3B] text-slate-500 hover:border-[#0066FF]/30'
@@ -127,30 +107,6 @@ export default function PaymentReminderModal({
                       </button>
                     ))}
                   </div>
-
-                  {selectedType === 'whatsapp' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-slate-500">Message Preview</p>
-                        <button onClick={copyMessage}
-                          className="flex items-center gap-1 text-xs text-[#0066FF] hover:underline">
-                          {copied ? <><CheckCircle2 className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
-                        </button>
-                      </div>
-                      <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-xl p-3 text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-40 overflow-y-auto">
-                        {waMessage}
-                      </div>
-                      {customerPhone && (
-                        
-                          href={`https://wa.me/${customerPhone.replace(/\s+/g, '').replace('+', '')}?text=${encodeURIComponent(waMessage)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-colors"
-                        >
-                          <MessageCircle className="w-4 h-4" /> Open in WhatsApp
-                        </a>
-                      )}
-                    </div>
-                  )}
 
                   <button
                     onClick={() => setStep('log')}
