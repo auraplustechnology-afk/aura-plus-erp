@@ -86,10 +86,6 @@ export default async function InvoicePDFPage({ params }: { params: Promise<{ id:
         `}</style>
       </head>
       <body>
-        <button className="no-print print-btn" onClick={() => { if (typeof window !== 'undefined') window.print() }}>
-          🖨 Print / Save PDF
-        </button>
-
         {/* Header */}
         <div className="header">
           <div>
@@ -118,7 +114,7 @@ export default async function InvoicePDFPage({ params }: { params: Promise<{ id:
           </div>
         </div>
 
-        {/* Bill to + dates — matching INV-000087 exactly */}
+        {/* Bill to + dates */}
         <div className="meta-row">
           <div className="bill-to">
             <label>Bill To</label>
@@ -165,7 +161,7 @@ export default async function InvoicePDFPage({ params }: { params: Promise<{ id:
           </tbody>
         </table>
 
-        {/* Totals — matching INV-000087 with "Payment Made" in red */}
+        {/* Totals */}
         <div className="totals">
           <div className="totals-box">
             <div className="t-row"><span>Sub Total</span><span>{fmtAmt(Number(invoice.subtotal))}</span></div>
@@ -194,7 +190,17 @@ export default async function InvoicePDFPage({ params }: { params: Promise<{ id:
           </div>
         )}
 
-        <script dangerouslySetInnerHTML={{ __html: `window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 800); });` }} />
+        {/* Auto-print script + adds a print button without React event handlers */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.addEventListener('load', function() {
+            var btn = document.createElement('button');
+            btn.textContent = '🖨 Print / Save PDF';
+            btn.className = 'no-print print-btn';
+            btn.onclick = function() { window.print(); };
+            document.body.insertBefore(btn, document.body.firstChild);
+            setTimeout(function() { window.print(); }, 800);
+          });
+        `}} />
       </body>
     </html>
   )
