@@ -5,7 +5,6 @@ import { ArrowLeft, Edit2, FileText } from 'lucide-react'
 import { formatCurrency, formatDate, getQuoteStatusClass, formatLabel } from '@/lib/utils/format'
 import QuoteActions from '@/components/modules/quotations/QuoteActions'
 import QuotePDFButton from '@/components/modules/quotations/QuotePDFButton'
-import type { Quotation } from '@/types'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -37,7 +36,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   // Sort lines
   const sortedLines = [...(quote.lines ?? [])].sort((a, b) => a.sort_order - b.sort_order)
 
-  // Fetch company settings for PDF
+  // Fetch company settings for display
   const { data: settings } = await supabase
     .from('system_settings')
     .select('key, value')
@@ -72,7 +71,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <QuotePDFButton quote={quote as Quotation} settings={settingsMap} lines={sortedLines} />
+          <QuotePDFButton quoteId={id} />
 
           {['draft', 'sent'].includes(quote.status) && (
             <Link href={`/quotations/${id}/edit`} className="btn-secondary">
@@ -84,9 +83,8 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
         </div>
       </div>
 
-      {/* Quote document preview — matches your exact QT-000249 layout */}
+      {/* Quote document preview */}
       <div className="card overflow-hidden">
-        {/* Document header — white bg matches PDF */}
         <div className="bg-white dark:bg-[#0F1C2E] p-8">
           <div className="flex items-start justify-between mb-8">
             {/* Left: Company info */}
@@ -145,7 +143,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
             </div>
           </div>
 
-          {/* Line items table — exact match of sample quote */}
+          {/* Line items table */}
           <table className="w-full mb-6">
             <thead>
               <tr className="bg-[#0A1628] dark:bg-[#0066FF]">
