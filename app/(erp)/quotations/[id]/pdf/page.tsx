@@ -94,11 +94,6 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
         `}</style>
       </head>
       <body>
-        {/* Print / Download button */}
-        <button className="no-print print-btn" onClick={() => { if (typeof window !== 'undefined') window.print() }}>
-          🖨 Print / Save PDF
-        </button>
-
         {/* Document header */}
         <div className="header">
           <div>
@@ -213,10 +208,14 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
           </div>
         )}
 
-        {/* Auto-print script */}
+        {/* Auto-print script + adds a print button without React event handlers */}
         <script dangerouslySetInnerHTML={{ __html: `
-          // Auto-trigger print dialog when opened in new tab
           window.addEventListener('load', function() {
+            var btn = document.createElement('button');
+            btn.textContent = '🖨 Print / Save PDF';
+            btn.className = 'no-print print-btn';
+            btn.onclick = function() { window.print(); };
+            document.body.insertBefore(btn, document.body.firstChild);
             setTimeout(function() { window.print(); }, 800);
           });
         `}} />
