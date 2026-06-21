@@ -126,7 +126,7 @@ export default function QuotePDFDocument({ quote, lines, customer, settings }: Q
             {customer?.physical_address && <Text style={styles.billLine}>{customer.physical_address}</Text>}
           </View>
           <View style={styles.metaCol}>
-            <Text style={styles.metaLine}>Date: <Text style={styles.metaValue}>{fmtDate(quote.created_at)}</Text></Text>
+            <Text style={styles.metaLine}>Date: {fmtDate(quote.created_at)}</Text>
             {quote.valid_until && <Text style={styles.validUntil}>Valid until {fmtDate(quote.valid_until)}</Text>}
           </View>
         </View>
