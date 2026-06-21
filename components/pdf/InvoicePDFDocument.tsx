@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer'
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
@@ -139,9 +139,9 @@ export default function InvoicePDFDocument({ invoice, lines, customer, settings 
             {customer?.physical_address && <Text style={styles.billLine}>{customer.physical_address}</Text>}
           </View>
           <View style={styles.metaCol}>
-            <Text style={styles.metaLine}>Invoice Date: <Text style={styles.metaValue}>{fmtDate(invoice.created_at)}</Text></Text>
-            <Text style={styles.metaLine}>Terms: <Text style={styles.metaValue}>{invoice.payment_terms}</Text></Text>
-            {invoice.due_date && <Text style={styles.metaLine}>Due Date: <Text style={styles.metaValue}>{fmtDate(invoice.due_date)}</Text></Text>}
+            <Text style={styles.metaLine}>Invoice Date: {fmtDate(invoice.created_at)}</Text>
+            <Text style={styles.metaLine}>Terms: {invoice.payment_terms}</Text>
+            {invoice.due_date && <Text style={styles.metaLine}>Due Date: {fmtDate(invoice.due_date)}</Text>}
           </View>
         </View>
 
