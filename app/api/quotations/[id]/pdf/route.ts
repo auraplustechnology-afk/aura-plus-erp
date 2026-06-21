@@ -29,7 +29,9 @@ export async function GET(
   const lines = [...(quote.lines ?? [])].sort(
     (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order
   )
-  const customer = quote.customer as Record<string, string> | null
+  // Supabase may return joined relations as an array — normalize to a single object
+  const rawCustomer = quote.customer
+  const customer = (Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer) as Record<string, string> | null
 
   const settings: Record<string, string> = {}
   settingsRes.data?.forEach(s => {
