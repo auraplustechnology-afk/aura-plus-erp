@@ -8,6 +8,8 @@ interface PDFDocumentActionsProps {
   targetId: string
 }
 
+const A4_WIDTH_MM = 210
+
 export default function PDFDocumentActions({ fileName, targetId }: PDFDocumentActionsProps) {
   const [downloading, setDownloading] = useState(false)
 
@@ -17,18 +19,22 @@ export default function PDFDocumentActions({ fileName, targetId }: PDFDocumentAc
       const el = document.getElementById(targetId)
       if (!el) return
 
-      const html2pdf = (await import('html2pdf.js')).default
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: `${fileName}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'] },
-        })
-        .from(el)
-        .save()
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+      const pdfHeight = (canvas.height * A4_WIDTH_MM) / canvas.width
+
+      const pdf = new jsPDF({
+        unit: 'mm',
+        format: [A4_WIDTH_MM, Math.max(pdfHeight, 1)],
+        orientation: 'portrait',
+      })
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, pdfHeight)
+      pdf.save(`${fileName}.pdf`)
     } catch (err) {
       console.error(err)
       alert('Could not generate PDF. Please try again.')
