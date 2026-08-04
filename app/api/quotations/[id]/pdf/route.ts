@@ -55,6 +55,8 @@ export async function GET(
     return NextResponse.json({
       error: 'Failed to generate PDF',
       message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      debugData: { quote, lines, customer, settings },
     }, { status: 500 })
   }
 }
