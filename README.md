@@ -21,6 +21,8 @@ A complete, modular ERP built on Next.js 15 + Supabase with:
 | 🛠 Technician Portal | Mobile-first field portal — zero financial data |
 | 🎫 Tickets | SLA tracking, escalation to project, internal notes |
 | 📋 Contracts | Maintenance agreements, invoice generation |
+| 💰 Expenses | Expense tracking and categorization |
+| 🛡 Asset Register | Company asset tracking, service logs |
 | 📊 Reports | Sales, Quotes, Problem Products, Activity Logs |
 | 🔍 Search | Global search across all records |
 
