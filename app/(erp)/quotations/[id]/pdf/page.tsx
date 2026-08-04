@@ -45,12 +45,14 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
             font-size: 12px;
             color: #1a1a1a;
             background: white;
+          }
+          #pdf-content {
             padding: 40px;
             max-width: 800px;
             margin: 0 auto;
           }
           @media print {
-            body { padding: 24px; }
+            #pdf-content { padding: 24px; }
             .no-print { display: none !important; }
             @page { margin: 1cm; }
           }

@@ -42,8 +42,9 @@ export default async function InvoicePDFPage({ params }: { params: Promise<{ id:
         <title>{invoice.invoice_number}</title>
         <style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; background: white; padding: 40px; max-width: 800px; margin: 0 auto; }
-          @media print { body { padding: 24px; } .no-print { display: none !important; } @page { margin: 1cm; } }
+          body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; background: white; }
+          #pdf-content { padding: 40px; max-width: 800px; margin: 0 auto; }
+          @media print { #pdf-content { padding: 24px; } .no-print { display: none !important; } @page { margin: 1cm; } }
           .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
           .logo-box { width: 160px; height: 90px; background: #EBF2FF; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
           .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 8px; }
