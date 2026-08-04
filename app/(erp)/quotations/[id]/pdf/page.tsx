@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
+import PDFDocumentActions from '@/components/pdf/PDFDocumentActions'
 
 export default async function QuotePDFPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -88,12 +89,20 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
           .footer-section { margin-top: 8px; border-top: 1px solid #E5E7EB; padding-top: 16px; }
           .footer-section h4 { font-size: 12px; font-weight: 700; color: #0A1628; margin-bottom: 6px; }
           .footer-section p { font-size: 11px; color: #555; line-height: 1.7; white-space: pre-wrap; }
-          .print-btn { position: fixed; top: 16px; right: 16px; background: #0066FF; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,102,255,0.3); }
-          .print-btn:hover { background: #0052CC; }
           .discount-line { font-size: 11px; color: #888; }
+          .pdf-action-bar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; }
+          .pdf-action-btn { border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+          .pdf-action-btn-primary { background: #0066FF; color: white; box-shadow: 0 4px 12px rgba(0,102,255,0.3); }
+          .pdf-action-btn-primary:hover { background: #0052CC; }
+          .pdf-action-btn-primary:disabled { opacity: 0.7; cursor: default; }
+          .pdf-action-btn-secondary { background: white; color: #0A1628; border: 1px solid #D1D5DB; }
+          .pdf-action-btn-secondary:hover { background: #F5F7FA; }
         `}</style>
       </head>
       <body>
+        <PDFDocumentActions fileName={quote.quote_number} targetId="pdf-content" />
+
+        <div id="pdf-content">
         {/* Document header */}
         <div className="header">
           <div>
@@ -129,7 +138,7 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
             {customer?.physical_address && <span>{customer.physical_address}</span>}
           </div>
           <div className="meta">
-            : <span>{formatDate(quote.created_at)}</span>
+            Quote Date: <span>{formatDate(quote.created_at)}</span>
             {quote.valid_until && (
               <div style={{ marginTop: 4, fontSize: 11, color: '#888' }}>
                 Valid until {formatDate(quote.valid_until)}
@@ -207,18 +216,7 @@ export default async function QuotePDFPage({ params }: { params: Promise<{ id: s
             <p>{quote.terms_and_conditions}</p>
           </div>
         )}
-
-        {/* Auto-print script + adds a print button without React event handlers */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          window.addEventListener('load', function() {
-            var btn = document.createElement('button');
-            btn.textContent = '🖨 Print / Save PDF';
-            btn.className = 'no-print print-btn';
-            btn.onclick = function() { window.print(); };
-            document.body.insertBefore(btn, document.body.firstChild);
-            setTimeout(function() { window.print(); }, 800);
-          });
-        `}} />
+        </div>
       </body>
     </html>
   )
