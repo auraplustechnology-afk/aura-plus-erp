@@ -1,7 +1,17 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 
+const STATUS_STYLES: Record<string, { bg: string; fg: string }> = {
+  draft: { bg: '#EEF0F3', fg: '#4B5563' },
+  sent: { bg: '#E6F0FF', fg: '#0066FF' },
+  accepted: { bg: '#E6F9EF', fg: '#16A34A' },
+  rejected: { bg: '#FDECEC', fg: '#DC2626' },
+  expired: { bg: '#EEF0F3', fg: '#4B5563' },
+}
+
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  page: { padding: 0, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  accentBar: { height: 8, backgroundColor: '#0066FF' },
+  body: { padding: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   logoBox: { width: 140, height: 80, backgroundColor: '#EBF2FF', borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginBottom: 10, overflow: 'hidden' },
   logoPlaceholder: { color: '#0066FF', fontSize: 20, fontWeight: 700 },
@@ -11,6 +21,7 @@ const styles = StyleSheet.create({
   docTitleBox: { alignItems: 'flex-end' },
   docTitle: { fontSize: 30, fontWeight: 700, color: '#0A1628' },
   docNum: { fontSize: 10, color: '#666', marginTop: 2 },
+  statusBadge: { marginTop: 8, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, fontSize: 8, fontWeight: 700 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   billLabel: { fontSize: 9, color: '#888', marginBottom: 2 },
   billName: { fontSize: 12, fontWeight: 700, color: '#0A1628', marginBottom: 1 },
@@ -34,13 +45,19 @@ const styles = StyleSheet.create({
   totalsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
   totalsLabel: { fontSize: 9, color: '#555' },
   totalsValue: { fontSize: 9, color: '#333' },
-  totalFinal: { backgroundColor: '#F3F4F6', padding: 8, borderRadius: 4, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between' },
-  totalFinalText: { fontWeight: 700, fontSize: 11, color: '#0A1628' },
+  totalsBoxBorder: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, padding: 10 },
+  totalFinal: { backgroundColor: '#0A1628', padding: 8, borderRadius: 4, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between' },
+  totalFinalText: { fontWeight: 700, fontSize: 11, color: '#ffffff' },
   totNote: { fontSize: 8, color: '#999', textAlign: 'right', marginTop: 4 },
   footerSection: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 12 },
   footerTitle: { fontSize: 10, fontWeight: 700, color: '#0A1628', marginBottom: 4 },
   footerText: { fontSize: 9, color: '#555', lineHeight: 1.5 },
   validUntil: { fontSize: 8, color: '#888', marginTop: 4 },
+  expiredFlag: { color: '#DC2626', fontWeight: 700 },
+  signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 48 },
+  signatureBox: { width: '45%', borderTopWidth: 1, borderTopColor: '#999', paddingTop: 6 },
+  signatureText: { fontSize: 8, color: '#888' },
+  thanks: { textAlign: 'center', marginTop: 28, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB', borderStyle: 'dashed', fontSize: 10, fontWeight: 700, color: '#0066FF' },
 })
 
 interface QuoteLine {
@@ -56,6 +73,7 @@ interface QuoteLine {
 interface QuotePDFProps {
   quote: {
     quote_number: string
+    status: string
     created_at: string
     valid_until: string | null
     subtotal: number
@@ -86,9 +104,16 @@ const fmtDate = (d: string | null) => {
 export default function QuotePDFDocument({ quote, lines, customer, settings }: QuotePDFProps) {
   const hasLogo = settings.company_logo_url && settings.company_logo_url !== 'null' && settings.company_logo_url !== ''
 
+  const isExpired = !!quote.valid_until && new Date(quote.valid_until) < new Date() && quote.status === 'sent'
+  const effectiveStatus = isExpired ? 'expired' : quote.status
+  const statusLabel = effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1)
+  const statusStyle = STATUS_STYLES[effectiveStatus] ?? STATUS_STYLES.draft
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <View style={styles.accentBar} />
+        <View style={styles.body}>
         {/* Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
@@ -112,6 +137,7 @@ export default function QuotePDFDocument({ quote, lines, customer, settings }: Q
           <View style={styles.docTitleBox}>
             <Text style={styles.docTitle}>QUOTE</Text>
             <Text style={styles.docNum}># {quote.quote_number}</Text>
+            <Text style={[styles.statusBadge, { backgroundColor: statusStyle.bg, color: statusStyle.fg }]}>{statusLabel}</Text>
           </View>
         </View>
 
@@ -126,8 +152,10 @@ export default function QuotePDFDocument({ quote, lines, customer, settings }: Q
             {customer?.physical_address && <Text style={styles.billLine}>{customer.physical_address}</Text>}
           </View>
           <View style={styles.metaCol}>
-            <Text style={styles.metaLine}>Date: {fmtDate(quote.created_at)}</Text>
-            {quote.valid_until && <Text style={styles.validUntil}>Valid until {fmtDate(quote.valid_until)}</Text>}
+            <Text style={styles.metaLine}>Quote Date: {fmtDate(quote.created_at)}</Text>
+            {quote.valid_until && (
+              <Text style={isExpired ? [styles.validUntil, styles.expiredFlag] : styles.validUntil}>Valid Until {fmtDate(quote.valid_until)}</Text>
+            )}
           </View>
         </View>
 
@@ -157,7 +185,7 @@ export default function QuotePDFDocument({ quote, lines, customer, settings }: Q
 
         {/* Totals */}
         <View style={styles.totalsWrap}>
-          <View style={styles.totalsBox}>
+          <View style={[styles.totalsBox, styles.totalsBoxBorder]}>
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>Sub Total</Text>
               <Text style={styles.totalsValue}>{fmtAmt(quote.subtotal)}</Text>
@@ -189,6 +217,19 @@ export default function QuotePDFDocument({ quote, lines, customer, settings }: Q
             <Text style={styles.footerText}>{quote.terms_and_conditions}</Text>
           </View>
         )}
+
+        {/* Signatures */}
+        <View style={styles.signatureRow}>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureText}>Authorized Signature — {settings.company_name || 'AURA PLUS TECHNOLOGIES'}</Text>
+          </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureText}>Customer Acceptance & Date</Text>
+          </View>
+        </View>
+
+        <Text style={styles.thanks}>Thank you for your business!</Text>
+        </View>
       </Page>
     </Document>
   )
