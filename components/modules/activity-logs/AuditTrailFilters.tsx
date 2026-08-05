@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ACTION_LABELS, MODULE_LABELS } from '@/lib/utils/activity'
+import { ACTION_LABELS, MODULE_LABELS } from '@/lib/utils/activity-labels'
 
 interface User {
   id: string

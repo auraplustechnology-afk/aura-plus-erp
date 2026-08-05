@@ -1,16 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { headers } from 'next/headers'
+import type { LogAction, LogModule } from '@/lib/utils/activity-labels'
 
-export type LogAction =
-  | 'created' | 'updated' | 'deleted' | 'status_changed'
-  | 'payment_recorded' | 'stock_adjusted' | 'login' | 'logout'
-  | 'converted' | 'password_reset' | 'deactivated' | 'activated'
-  | 'setup_completed'
-
-export type LogModule =
-  | 'lead' | 'customer' | 'quotation' | 'invoice' | 'payment'
-  | 'product' | 'project' | 'ticket' | 'contract' | 'user'
-  | 'stock_adjustment' | 'settings'
+export type { LogAction, LogModule }
+export {
+  ACTION_LABELS,
+  MODULE_LABELS,
+  ACTION_COLORS,
+  MODULE_ICONS,
+} from '@/lib/utils/activity-labels'
 
 export interface LogEntry {
   action: LogAction
@@ -95,67 +93,4 @@ export async function logLogout(userId: string): Promise<void> {
   } catch (err) {
     console.error('[logLogout] Failed:', err)
   }
-}
-
-// ── Human-readable action labels for display ────────────────
-export const ACTION_LABELS: Record<string, string> = {
-  created:          'Created',
-  updated:          'Updated',
-  deleted:          'Deleted',
-  status_changed:   'Status Changed',
-  payment_recorded: 'Payment Recorded',
-  stock_adjusted:   'Stock Adjusted',
-  login:            'Logged In',
-  logout:           'Logged Out',
-  converted:        'Converted',
-  password_reset:   'Password Reset',
-  deactivated:      'Deactivated',
-  activated:        'Activated',
-  setup_completed:  'Setup Completed',
-}
-
-export const MODULE_LABELS: Record<string, string> = {
-  lead:             'CRM / Lead',
-  customer:         'Customer',
-  quotation:        'Quotation',
-  invoice:          'Invoice',
-  payment:          'Payment',
-  product:          'Inventory',
-  project:          'Project',
-  ticket:           'Support Ticket',
-  contract:         'Contract',
-  user:             'User',
-  stock_adjustment: 'Stock',
-  settings:         'Settings',
-}
-
-export const ACTION_COLORS: Record<string, string> = {
-  created:          'badge-success',
-  updated:          'badge-info',
-  deleted:          'badge-danger',
-  status_changed:   'badge-warning',
-  payment_recorded: 'badge-success',
-  stock_adjusted:   'badge-default',
-  login:            'badge-default',
-  logout:           'badge-default',
-  converted:        'badge-primary',
-  password_reset:   'badge-warning',
-  deactivated:      'badge-danger',
-  activated:        'badge-success',
-  setup_completed:  'badge-success',
-}
-
-export const MODULE_ICONS: Record<string, string> = {
-  lead:             '👤',
-  customer:         '🏢',
-  quotation:        '📄',
-  invoice:          '🧾',
-  payment:          '💰',
-  product:          '📦',
-  project:          '🔧',
-  ticket:           '🎫',
-  contract:         '📋',
-  user:             '👥',
-  stock_adjustment: '📊',
-  settings:         '⚙️',
 }
