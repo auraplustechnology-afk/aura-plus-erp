@@ -1,357 +1,256 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Edit2, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+import { Plus, Receipt, AlertCircle } from 'lucide-react'
 import { formatCurrency, formatDate, getInvoiceStatusClass, formatLabel } from '@/lib/utils/format'
-import InvoiceActions from '@/components/modules/invoices/InvoiceActions'
-import RecordPaymentModal from '@/components/modules/invoices/RecordPaymentModal'
-import InvoicePDFButton from '@/components/modules/invoices/InvoicePDFButton'
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data } = await supabase.from('invoices').select('invoice_number').eq('id', id).single()
-  return { title: `${data?.invoice_number ?? 'Invoice'} — Aura Plus ERP` }
-}
+export const metadata = { title: 'Invoices — Aura Plus ERP' }
 
-export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+const STATUS_TABS = [
+  { label: 'All',           value: '' },
+  { label: 'Draft',         value: 'draft' },
+  { label: 'Sent',          value: 'sent' },
+  { label: 'Partially Paid',value: 'partially_paid' },
+  { label: 'Paid',          value: 'paid' },
+  { label: 'Overdue',       value: 'overdue' },
+]
+
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) redirect('/login')
 
-  const { data: currentUser } = await supabase.from('users').select('role').eq('id', authUser.id).single()
-  const isSales = currentUser?.role === 'sales'
+  const params = await searchParams
+  const statusFilter = params.status ?? ''
+  const search = params.q ?? ''
+  const page = parseInt(params.page ?? '1')
+  const pageSize = 25
 
-  const [invoiceRes, settingsRes] = await Promise.all([
-    supabase.from('invoices').select(`
-      *,
-      customer:customer_id(id, company_name, contact_person, email, phone, physical_address),
-      lines:invoice_lines(*),
-      payments(*, recorded_by_user:recorded_by(full_name))
-    `).eq('id', id).is('deleted_at', null).single(),
-    supabase.from('system_settings').select('key, value'),
+  let query = supabase
+    .from('invoices')
+    .select(`
+      id, invoice_number, invoice_type, status, total,
+      amount_paid, outstanding_balance, due_date,
+      created_at, sent_at, paid_at,
+      customers:customer_id(company_name, contact_person)
+    `, { count: 'exact' })
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1)
+
+  if (statusFilter) query = query.eq('status', statusFilter)
+  if (search) query = query.ilike('invoice_number', `%${search}%`)
+
+  const { data: invoices, count } = await query
+
+  // Status counts
+  const statusCounts = await Promise.all(
+    STATUS_TABS.slice(1).map(tab =>
+      supabase.from('invoices').select('id', { count: 'exact' })
+        .eq('status', tab.value).is('deleted_at', null)
+    )
+  )
+
+  // Financial summary
+  const [totalRevenue, totalOutstanding, overdueCount] = await Promise.all([
+    supabase.from('invoices').select('amount_paid').eq('status', 'paid').is('deleted_at', null),
+    supabase.from('invoices').select('outstanding_balance').not('status', 'eq', 'paid').is('deleted_at', null),
+    supabase.from('invoices').select('id', { count: 'exact' }).eq('status', 'overdue').is('deleted_at', null),
   ])
 
-  if (!invoiceRes.data) notFound()
-
-  const invoice = invoiceRes.data
-  const sortedLines = [...(invoice.lines ?? [])].sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
-  const payments = [...(invoice.payments ?? [])].sort((a: { created_at: string }, b: { created_at: string }) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-  const settings: Record<string, string> = {}
-  settingsRes.data?.forEach(s => {
-    settings[s.key] = typeof s.value === 'string' ? s.value.replace(/^"|"$/g, '') : String(s.value ?? '')
-  })
-
-  const customer = invoice.customer as Record<string, string> | null
-  const isOverdue = invoice.status === 'overdue'
-  const isPaid = invoice.status === 'paid'
-  const canEdit = ['draft'].includes(invoice.status) && !isSales
-  const canRecordPayment = !isPaid && !isSales
-  const progressPercent = invoice.total > 0 ? Math.min(100, (invoice.amount_paid / invoice.total) * 100) : 0
+  const revenue = (totalRevenue.data ?? []).reduce((s, i) => s + (i.amount_paid ?? 0), 0)
+  const outstanding = (totalOutstanding.data ?? []).reduce((s, i) => s + (i.outstanding_balance ?? 0), 0)
+  const totalPages = Math.ceil((count ?? 0) / pageSize)
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="page-header">
         <div>
-          <Link href="/invoices" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-[#0066FF] mb-2 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> All Invoices
-          </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-[#0A1628] dark:text-white font-mono">{invoice.invoice_number}</h1>
-            {invoice.invoice_type === 'proforma' && (
-              <span className="badge badge-info text-xs">Proforma</span>
-            )}
-            <span className={`badge ${getInvoiceStatusClass(invoice.status)} text-sm px-3 py-1`}>
-              {formatLabel(invoice.status)}
-            </span>
-          </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Created {formatDate(invoice.created_at)}
-            {invoice.due_date && ` · Due ${formatDate(invoice.due_date)}`}
-            {invoice.quotation_id && (
-              <Link href={`/quotations/${invoice.quotation_id}`} className="ml-2 text-[#0066FF] hover:underline">
-                View source quote →
-              </Link>
-            )}
-          </p>
+          <h1 className="page-title">Invoices</h1>
+          <p className="page-subtitle">{count ?? 0} invoices</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {!isSales && <InvoicePDFButton invoiceId={id} />}
-          {canEdit && (
-            <Link href={`/invoices/${id}/edit`} className="btn-secondary">
-              <Edit2 className="w-4 h-4" /> Edit
-            </Link>
+        <Link href="/invoices/new" className="btn-primary">
+          <Plus className="w-4 h-4" /> New Invoice
+        </Link>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="stat-card">
+          <div className="stat-label">Total Revenue (Paid)</div>
+          <div className="stat-value text-green-600 dark:text-green-400">{formatCurrency(revenue)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Outstanding Balance</div>
+          <div className="stat-value text-amber-600 dark:text-amber-400">{formatCurrency(outstanding)}</div>
+        </div>
+        <div className={`stat-card ${(overdueCount.count ?? 0) > 0 ? 'border-red-200 dark:border-red-900' : ''}`}>
+          <div className="stat-label">Overdue Invoices</div>
+          <div className={`stat-value ${(overdueCount.count ?? 0) > 0 ? 'text-red-500' : ''}`}>
+            {overdueCount.count ?? 0}
+          </div>
+          {(overdueCount.count ?? 0) > 0 && (
+            <div className="flex items-center gap-1 text-xs text-red-500 mt-0.5">
+              <AlertCircle className="w-3 h-3" /> Requires attention
+            </div>
           )}
-          {!isSales && <InvoiceActions invoiceId={id} status={invoice.status} />}
         </div>
       </div>
 
-      {/* Overdue banner */}
-      {isOverdue && (
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-red-700 dark:text-red-400">This invoice is overdue</p>
-            <p className="text-xs text-red-600 dark:text-red-500">Due date was {formatDate(invoice.due_date)}{!isSales && ` · Outstanding: ${formatCurrency(invoice.outstanding_balance)}`}</p>
+      {/* Status tabs */}
+      <div className="flex gap-0.5 border-b border-[#E2E8F0] dark:border-[#1E2A3B] overflow-x-auto">
+        <Link
+          href="/invoices"
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+            !statusFilter ? 'border-[#0066FF] text-[#0066FF]' : 'border-transparent text-slate-500 hover:text-[#0A1628] dark:hover:text-white'
+          }`}
+        >
+          All
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${!statusFilter ? 'bg-[#0066FF]/10 text-[#0066FF]' : 'bg-slate-100 dark:bg-[#1E2A3B] text-slate-400'}`}>
+            {count ?? 0}
+          </span>
+        </Link>
+        {STATUS_TABS.slice(1).map((tab, i) => (
+          <Link
+            key={tab.value}
+            href={`/invoices?status=${tab.value}`}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+              statusFilter === tab.value ? 'border-[#0066FF] text-[#0066FF]' : 'border-transparent text-slate-500 hover:text-[#0A1628] dark:hover:text-white'
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              statusFilter === tab.value ? 'bg-[#0066FF]/10 text-[#0066FF]' :
+              tab.value === 'overdue' && (statusCounts[i]?.count ?? 0) > 0 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+              'bg-slate-100 dark:bg-[#1E2A3B] text-slate-400'
+            }`}>
+              {statusCounts[i]?.count ?? 0}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="card overflow-hidden">
+        {(invoices ?? []).length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
+            <h3 className="font-semibold text-[#0A1628] dark:text-white mb-1">No invoices found</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              {statusFilter ? `No ${statusFilter.replace('_', ' ')} invoices` : 'Create your first invoice to get started.'}
+            </p>
+            {!statusFilter && (
+              <Link href="/invoices/new" className="btn-primary">
+                <Plus className="w-4 h-4" /> New Invoice
+              </Link>
+            )}
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Customer</th>
+                  <th>Type</th>
+                  <th>Total</th>
+                  <th>Paid</th>
+                  <th>Balance</th>
+                  <th>Status</th>
+                  <th className="hidden lg:table-cell">Due Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(invoices ?? []).map((inv) => {
+                  const customer = inv.customers as { company_name: string; contact_person: string | null } | null
+                  const isOverdue = inv.status === 'overdue'
+                  const isDueSoon = inv.due_date && new Date(inv.due_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    && !['paid', 'overdue'].includes(inv.status)
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Invoice document */}
-        <div className={`${isSales ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-5`}>
-          <div className="card overflow-hidden">
-            <div className="bg-white dark:bg-[#0F1C2E] p-8">
-              {/* Doc header */}
-              <div className="flex items-start justify-between mb-8">
-                <div className="flex-1">
-                  {settings.company_logo_url && settings.company_logo_url !== 'null' ? (
-                    <div className="w-40 h-24 bg-[#EBF2FF] rounded-lg flex items-center justify-center mb-4 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={settings.company_logo_url} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
-                    </div>
-                  ) : (
-                    <div className="w-40 h-24 bg-[#EBF2FF] rounded-lg flex items-center justify-center mb-4">
-                      <FileText className="w-8 h-8 text-[#0066FF]" />
-                    </div>
-                  )}
-                  <div className="text-xs text-slate-600 dark:text-slate-400 space-y-0.5 max-w-xs">
-                    <div className="font-bold text-sm text-[#0A1628] dark:text-white">{settings.company_name}</div>
-                    {settings.company_address && <div>{settings.company_address}</div>}
-                    {settings.company_tpin && <div>TPIN-{settings.company_tpin}</div>}
-                    {settings.company_phone && <div>{settings.company_phone}</div>}
-                    {settings.company_email && <div>{settings.company_email}</div>}
-                    {settings.company_website && <div>{settings.company_website}</div>}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-4xl font-black text-[#0A1628] dark:text-white tracking-tight">
-                    {invoice.invoice_type === 'proforma' ? 'PROFORMA' : 'INVOICE'}
-                  </div>
-                  <div className="text-sm font-semibold text-slate-500 mt-1">#{invoice.invoice_number}</div>
-                  {!isSales && (
-                    <div className="mt-3">
-                      <div className="text-xs text-slate-400">Balance Due</div>
-                      <div className={`text-xl font-bold ${isPaid ? 'text-green-600' : isOverdue ? 'text-red-500' : 'text-[#0A1628] dark:text-white'}`}>
-                        {isPaid ? 'ZMW0.00' : formatCurrency(invoice.outstanding_balance)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Bill to + dates */}
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <div className="text-xs text-slate-400 mb-0.5">Bill To</div>
-                  <div className="font-bold text-[#0A1628] dark:text-white">{customer?.company_name}</div>
-                  {customer?.contact_person && <div className="text-sm text-slate-500">{customer.contact_person}</div>}
-                  {customer?.phone && <div className="text-sm text-slate-500">{customer.phone}</div>}
-                  {customer?.email && <div className="text-sm text-slate-500">{customer.email}</div>}
-                  {customer?.physical_address && <div className="text-sm text-slate-500">{customer.physical_address}</div>}
-                </div>
-                <div className="text-right space-y-1">
-                  <div className="text-sm">
-                    <span className="text-slate-400 mr-3">Invoice Date :</span>
-                    <span className="font-medium text-[#0A1628] dark:text-white">{formatDate(invoice.created_at)}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-slate-400 mr-3">Terms :</span>
-                    <span className="font-medium text-[#0A1628] dark:text-white">{invoice.payment_terms}</span>
-                  </div>
-                  {invoice.due_date && (
-                    <div className="text-sm">
-                      <span className="text-slate-400 mr-3">Due Date :</span>
-                      <span className={`font-medium ${isOverdue ? 'text-red-500' : 'text-[#0A1628] dark:text-white'}`}>
-                        {formatDate(invoice.due_date)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Lines table */}
-              <table className="w-full mb-6">
-                <thead>
-                  <tr className="bg-[#0A1628] dark:bg-[#0066FF]">
-                    <th className="text-left text-white text-xs font-semibold px-4 py-3 w-8">#</th>
-                    <th className="text-left text-white text-xs font-semibold px-4 py-3">Item & Description</th>
-                    <th className="text-right text-white text-xs font-semibold px-4 py-3 w-16">Qty</th>
-                    {!isSales && <th className="text-right text-white text-xs font-semibold px-4 py-3 w-28">Rate</th>}
-                    {!isSales && <th className="text-right text-white text-xs font-semibold px-4 py-3 w-28">Amount</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedLines.map((line: {
-                    id: string; description: string; line_type: string;
-                    quantity: number; unit_price: number; line_total: number
-                  }, i: number) => (
-                    <tr key={line.id} className="border-b border-slate-100 dark:border-[#1E2A3B]">
-                      <td className="px-4 py-3 text-sm text-slate-400">{i + 1}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-[#0A1628] dark:text-white">{line.description}</div>
-                        {line.line_type !== 'product' && (
-                          <div className="text-xs text-slate-400 mt-0.5 capitalize">{line.line_type}</div>
+                  return (
+                    <tr key={inv.id} className={isOverdue ? 'bg-red-50/30 dark:bg-red-950/10' : ''}>
+                      <td>
+                        <Link href={`/invoices/${inv.id}`} className="font-mono text-sm font-semibold text-[#0066FF] hover:underline">
+                          {inv.invoice_number}
+                        </Link>
+                        {inv.invoice_type === 'proforma' && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">Proforma</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-300">
-                        {Number(line.quantity).toFixed(2)}
+                      <td>
+                        <div className="font-medium text-sm text-[#0A1628] dark:text-white">{customer?.company_name ?? '—'}</div>
+                        {customer?.contact_person && (
+                          <div className="text-xs text-slate-400">{customer.contact_person}</div>
+                        )}
                       </td>
-                      {!isSales && (
-                        <td className="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-300">
-                          {Number(line.unit_price).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}
-                        </td>
-                      )}
-                      {!isSales && (
-                        <td className="px-4 py-3 text-sm text-right font-medium text-[#0A1628] dark:text-white">
-                          {Number(line.line_total).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}
-                        </td>
-                      )}
+                      <td>
+                        <span className="text-xs text-slate-500 capitalize">{inv.invoice_type}</span>
+                      </td>
+                      <td className="font-semibold text-sm text-[#0A1628] dark:text-white">
+                        {formatCurrency(inv.total)}
+                      </td>
+                      <td className="text-sm text-green-600 dark:text-green-400 font-medium">
+                        {inv.amount_paid > 0 ? formatCurrency(inv.amount_paid) : '—'}
+                      </td>
+                      <td>
+                        {inv.outstanding_balance > 0 ? (
+                          <span className={`text-sm font-semibold ${isOverdue ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {formatCurrency(inv.outstanding_balance)}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-green-600">Paid ✓</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${getInvoiceStatusClass(inv.status)}`}>
+                          {formatLabel(inv.status)}
+                        </span>
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {inv.due_date ? (
+                          <span className={`text-xs font-medium ${
+                            isOverdue ? 'text-red-500' :
+                            isDueSoon ? 'text-amber-500' :
+                            'text-slate-400'
+                          }`}>
+                            {formatDate(inv.due_date)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        <Link href={`/invoices/${inv.id}`} className="text-xs text-[#0066FF] hover:underline font-medium whitespace-nowrap">
+                          View →
+                        </Link>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  )
+                })}
+              </tbody>
+            </table>
 
-              {/* Totals — hidden from sales role */}
-              {!isSales && (
-                <div className="flex justify-end mb-8">
-                  <div className="w-64 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Sub Total</span>
-                      <span>{Number(invoice.subtotal).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    {invoice.discount_amount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Discount</span>
-                        <span className="text-red-500">-{Number(invoice.discount_amount).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between bg-slate-100 dark:bg-[#1E2A3B] rounded px-3 py-2 mt-2">
-                      <span className="font-bold text-[#0A1628] dark:text-white">Total</span>
-                      <span className="font-bold text-[#0A1628] dark:text-white">ZMW{Number(invoice.total).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    {invoice.amount_paid > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Payment Made</span>
-                        <span className="text-red-500 font-medium">(-) {Number(invoice.amount_paid).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between bg-slate-100 dark:bg-[#1E2A3B] rounded px-3 py-2">
-                      <span className="font-bold text-[#0A1628] dark:text-white">Balance Due</span>
-                      <span className={`font-bold ${isPaid ? 'text-green-600' : isOverdue ? 'text-red-500' : 'text-[#0A1628] dark:text-white'}`}>
-                        ZMW{Number(invoice.outstanding_balance).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    {invoice.tot_note && (
-                      <div className="text-xs text-slate-400 text-right">{invoice.tot_note}</div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes + Terms */}
-              <div className="space-y-5 text-sm">
-                {invoice.notes && (
-                  <div>
-                    <div className="font-semibold text-[#0A1628] dark:text-white mb-1">Notes</div>
-                    <div className="text-slate-500 whitespace-pre-wrap">{invoice.notes}</div>
-                  </div>
-                )}
-                {invoice.terms_and_conditions && (
-                  <div>
-                    <div className="font-semibold text-[#0A1628] dark:text-white mb-1">Terms &amp; Conditions</div>
-                    <div className="text-slate-500 whitespace-pre-wrap text-xs">{invoice.terms_and_conditions}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right column: Payment panel — hidden from sales */}
-        {!isSales && (
-          <div className="space-y-4">
-            <div className="card p-5">
-              <h3 className="font-semibold text-sm text-[#0A1628] dark:text-white mb-4">Payment Summary</h3>
-              <div className="mb-4">
-                <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-                  <span>Paid</span>
-                  <span>{progressPercent.toFixed(0)}%</span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-[#1E2A3B] rounded-full h-2">
-                  <div
-                    className="bg-green-500 rounded-full h-2 transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Invoice Total</span>
-                  <span className="font-semibold text-[#0A1628] dark:text-white">{formatCurrency(invoice.total)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Amount Paid</span>
-                  <span className="font-semibold text-green-600">{formatCurrency(invoice.amount_paid)}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t border-[#E2E8F0] dark:border-[#1E2A3B] pt-2.5">
-                  <span className="font-semibold text-[#0A1628] dark:text-white">Outstanding</span>
-                  <span className={`font-bold text-base ${isPaid ? 'text-green-600' : isOverdue ? 'text-red-500' : 'text-[#0A1628] dark:text-white'}`}>
-                    {formatCurrency(invoice.outstanding_balance)}
-                  </span>
-                </div>
-              </div>
-              {isPaid && (
-                <div className="mt-4 flex items-center gap-2 text-green-600 text-sm font-medium">
-                  <CheckCircle className="w-4 h-4" />
-                  Paid in full {formatDate(invoice.paid_at)}
-                </div>
-              )}
-              {invoice.stock_deducted && (
-                <div className="mt-3 text-xs text-slate-400 flex items-center gap-1.5">
-                  <CheckCircle className="w-3 h-3 text-green-500" />
-                  Stock deducted {formatDate(invoice.stock_deducted_at)}
-                </div>
-              )}
-            </div>
-
-            {canRecordPayment && (
-              <RecordPaymentModal invoiceId={id} outstanding={invoice.outstanding_balance} />
-            )}
-
-            {payments.length > 0 && (
-              <div className="card">
-                <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
-                  <h3 className="font-semibold text-sm text-[#0A1628] dark:text-white">Payment History</h3>
-                </div>
-                <div className="divide-y divide-[#E2E8F0] dark:divide-[#1E2A3B]">
-                  {payments.map((payment: {
-                    id: string; amount: number; payment_method: string;
-                    payment_date: string; reference_number: string | null;
-                    notes: string | null; recorded_by_user: { full_name: string } | null
-                  }) => (
-                    <div key={payment.id} className="px-4 py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-green-600">+{formatCurrency(payment.amount)}</div>
-                          <div className="text-xs text-slate-400 mt-0.5 capitalize">
-                            {payment.payment_method.replace('_', ' ')}
-                            {payment.reference_number && ` · Ref: ${payment.reference_number}`}
-                          </div>
-                          {payment.notes && <div className="text-xs text-slate-400 mt-0.5">{payment.notes}</div>}
-                          {payment.recorded_by_user && <div className="text-xs text-slate-400 mt-0.5">by {payment.recorded_by_user.full_name}</div>}
-                        </div>
-                        <div className="text-xs text-slate-400 flex-shrink-0">{formatDate(payment.payment_date)}</div>
-                      </div>
-                    </div>
-                  ))}
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0] dark:border-[#1E2A3B]">
+                <p className="text-sm text-slate-400">
+                  Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, count ?? 0)} of {count}
+                </p>
+                <div className="flex gap-2">
+                  {page > 1 && (
+                    <Link href={`/invoices?page=${page - 1}${statusFilter ? `&status=${statusFilter}` : ''}`} className="btn-secondary text-xs py-1.5 px-3">← Prev</Link>
+                  )}
+                  {page < totalPages && (
+                    <Link href={`/invoices?page=${page + 1}${statusFilter ? `&status=${statusFilter}` : ''}`} className="btn-primary text-xs py-1.5 px-3">Next →</Link>
+                  )}
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
