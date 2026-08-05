@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Headphones, AlertCircle, Clock } from 'lucide-react'
 import { formatDate, getTicketStatusClass, getPriorityClass, formatLabel } from '@/lib/utils/format'
+import TicketTechnicianFilter from '@/components/modules/tickets/TicketTechnicianFilter'
 
 export const metadata = { title: 'Support Tickets — Aura Plus ERP' }
 
@@ -168,19 +169,7 @@ export default async function TicketsPage({
         ))}
 
         {technicians.data && technicians.data.length > 0 && (
-          <select
-            className="form-input text-xs py-1.5 ml-auto"
-            defaultValue={techFilter}
-            onChange={e => {
-              const url = new URL(window.location.href)
-              if (e.target.value) url.searchParams.set('tech', e.target.value)
-              else url.searchParams.delete('tech')
-              window.location.href = url.toString()
-            }}
-          >
-            <option value="">All Technicians</option>
-            {technicians.data.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-          </select>
+          <TicketTechnicianFilter technicians={technicians.data} defaultValue={techFilter} />
         )}
       </div>
 

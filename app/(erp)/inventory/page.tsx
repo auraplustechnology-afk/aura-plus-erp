@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Plus, Package, AlertTriangle, TrendingDown, BarChart3 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import InventorySearchBar from '@/components/modules/inventory/InventorySearchBar'
+import InventoryCategoryFilter from '@/components/modules/inventory/InventoryCategoryFilter'
 
 export const metadata = { title: 'Inventory — Aura Plus ERP' }
 
@@ -107,17 +108,7 @@ export default async function InventoryPage({
       <div className="flex flex-col sm:flex-row gap-3">
         <InventorySearchBar defaultValue={search} />
         <div className="flex gap-2">
-          <select
-            className="form-input text-sm py-2"
-            defaultValue={categoryFilter}
-            onChange={() => {}}
-            name="category"
-          >
-            <option value="">All Categories</option>
-            {(categories.data ?? []).map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <InventoryCategoryFilter categories={categories.data ?? []} defaultValue={categoryFilter} />
           <div className="flex gap-1">
             {[
               { label: 'All', value: '' },
