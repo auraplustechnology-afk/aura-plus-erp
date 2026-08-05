@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Shield } from 'lucide-react'
 import { ACTION_LABELS, ACTION_COLORS, MODULE_LABELS, MODULE_ICONS } from '@/lib/utils/activity'
+import AuditTrailFilters from '@/components/modules/activity-logs/AuditTrailFilters'
 
 export const metadata = { title: 'Audit Trail — Aura Plus ERP' }
 
@@ -52,9 +53,6 @@ export default async function AuditTrailPage({
   const totalPages = Math.ceil((count ?? 0) / pageSize)
   const hasFilters = userFilter || actionFilter || moduleFilter || fromFilter || toFilter
 
-  const ACTIONS = Object.keys(ACTION_LABELS)
-  const MODULES = Object.keys(MODULE_LABELS)
-
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -73,27 +71,15 @@ export default async function AuditTrailPage({
 
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3">
-        {canViewAll && (
-          <select className="form-input text-xs py-1.5 w-44" defaultValue={userFilter}
-            onChange={e => { const u = new URL(window.location.href); e.target.value ? u.searchParams.set('user', e.target.value) : u.searchParams.delete('user'); u.searchParams.delete('page'); window.location.href = u.toString() }}>
-            <option value="">All Users</option>
-            {(users ?? []).map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-          </select>
-        )}
-        <select className="form-input text-xs py-1.5 w-40" defaultValue={actionFilter}
-          onChange={e => { const u = new URL(window.location.href); e.target.value ? u.searchParams.set('action', e.target.value) : u.searchParams.delete('action'); window.location.href = u.toString() }}>
-          <option value="">All Actions</option>
-          {ACTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
-        </select>
-        <select className="form-input text-xs py-1.5 w-40" defaultValue={moduleFilter}
-          onChange={e => { const u = new URL(window.location.href); e.target.value ? u.searchParams.set('module', e.target.value) : u.searchParams.delete('module'); window.location.href = u.toString() }}>
-          <option value="">All Modules</option>
-          {MODULES.map(m => <option key={m} value={m}>{MODULE_LABELS[m] ?? m}</option>)}
-        </select>
-        <input type="date" className="form-input text-xs py-1.5" defaultValue={fromFilter}
-          onChange={e => { const u = new URL(window.location.href); e.target.value ? u.searchParams.set('from', e.target.value) : u.searchParams.delete('from'); window.location.href = u.toString() }} />
-        <input type="date" className="form-input text-xs py-1.5" defaultValue={toFilter}
-          onChange={e => { const u = new URL(window.location.href); e.target.value ? u.searchParams.set('to', e.target.value) : u.searchParams.delete('to'); window.location.href = u.toString() }} />
+        <AuditTrailFilters
+          canViewAll={canViewAll}
+          users={users ?? []}
+          userFilter={userFilter}
+          actionFilter={actionFilter}
+          moduleFilter={moduleFilter}
+          fromFilter={fromFilter}
+          toFilter={toFilter}
+        />
         {hasFilters && <Link href="/activity-logs" className="btn-secondary text-xs py-1.5 px-3">Clear</Link>}
       </div>
 

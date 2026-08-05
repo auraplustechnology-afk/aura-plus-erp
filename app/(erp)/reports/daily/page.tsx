@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, Target, Trophy } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
+import DailyReportDatePicker from '@/components/modules/reports/DailyReportDatePicker'
 
 export const metadata = { title: 'Daily Business Report — Aura Plus ERP' }
 
@@ -76,13 +77,7 @@ export default async function DailyReportPage({
           <p className="page-subtitle">{new Date(selectedDate).toLocaleDateString('en-ZM', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
         {/* Date picker */}
-        <input type="date" className="form-input w-auto"
-          defaultValue={selectedDate}
-          max={now.toISOString().split('T')[0]}
-          onChange={e => {
-            if (e.target.value) window.location.href = `/reports/daily?date=${e.target.value}`
-          }}
-        />
+        <DailyReportDatePicker selectedDate={selectedDate} maxDate={now.toISOString().split('T')[0]} />
       </div>
 
       {/* Profit/Loss banner */}
