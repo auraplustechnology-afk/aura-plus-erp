@@ -52,7 +52,12 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/setup')
   ) {
-    if (user && (pathname.startsWith('/login') || pathname.startsWith('/reset-password'))) {
+    // /reset-password/confirm is where invite/recovery links land - accepting the
+    // link establishes a session before the user has set a password, so it must
+    // stay reachable even when `user` is already set. Only bounce away from the
+    // "request a link" form and /login when already authenticated.
+    const isResetConfirm = pathname.startsWith('/reset-password/confirm')
+    if (user && !isResetConfirm && (pathname.startsWith('/login') || pathname.startsWith('/reset-password'))) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return supabaseResponse
