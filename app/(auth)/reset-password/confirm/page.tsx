@@ -19,48 +19,52 @@ function ConfirmForm() {
 
   useEffect(() => {
     const supabase = createClient()
+    let cancelled = false
 
-    // Invite/recovery links use a PKCE `code` param, or a legacy #access_token hash
-    // that the browser client picks up automatically. Handle both.
-    const code = searchParams.get('code')
-
+    // Invite/recovery links use either a PKCE `code` query param, or the
+    // legacy #access_token=...&refresh_token=... hash. Handle both explicitly
+    // rather than waiting on a fixed timer for the client to auto-detect the
+    // hash - a slow network made that race incorrectly report valid links as
+    // expired before the real check had finished.
     async function establishSession() {
+      const code = searchParams.get('code')
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-        if (exchangeError) {
-          setLinkInvalid(true)
-          return
+        if (!cancelled) {
+          if (exchangeError) setLinkInvalid(true)
+          else setReady(true)
         }
-        setReady(true)
         return
       }
 
+      const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+      const hashParams = new URLSearchParams(hash)
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+
+      if (accessToken && refreshToken) {
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (!cancelled) {
+          if (setSessionError) setLinkInvalid(true)
+          else setReady(true)
+        }
+        return
+      }
+
+      // No token in the URL - only valid if a session already exists (e.g. revisiting the page)
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setReady(true)
+      if (!cancelled) {
+        if (session) setReady(true)
+        else setLinkInvalid(true)
       }
     }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        setReady(true)
-      }
-    })
 
     establishSession()
 
-    // Give the client a moment to parse a hash-based token before giving up
-    const timeout = setTimeout(() => {
-      setReady(current => {
-        if (!current) setLinkInvalid(true)
-        return current
-      })
-    }, 4000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
-    }
+    return () => { cancelled = true }
   }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
