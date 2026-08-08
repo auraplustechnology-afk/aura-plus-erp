@@ -23,6 +23,16 @@ function LoginForm() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    // Supabase invite/recovery emails redirect to the bare Site URL with the
+    // token in the hash rather than a specific path. Catch that here before
+    // it silently logs the user in without ever letting them set a password.
+    const hash = window.location.hash
+    if (hash.includes('access_token') && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      router.replace(`/reset-password/confirm${hash}`)
+    }
+  }, [router])
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
