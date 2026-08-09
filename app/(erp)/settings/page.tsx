@@ -94,7 +94,10 @@ export default function SettingsPage() {
 
     if (!error) {
       const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
-      const logoUrl = urlData.publicUrl
+      // Uploads overwrite the same fixed path, so the URL never changes between
+      // uploads and browsers/CDNs keep serving the previous cached image. A
+      // cache-busting param forces every upload to be treated as a fresh image.
+      const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`
       setSettings(prev => ({ ...prev, company_logo_url: logoUrl }))
       await supabase.from('system_settings').upsert({ key: 'company_logo_url', value: JSON.stringify(logoUrl) }, { onConflict: 'key' })
     }
