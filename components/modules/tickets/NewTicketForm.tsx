@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, Headphones, AlertCircle } from 'lucide-react'
 import { createTicket } from '@/lib/actions/tickets'
+import CustomerCombobox from '@/components/modules/customers/CustomerCombobox'
 import type { TicketPriority } from '@/types'
 
 const PRIORITIES: { value: TicketPriority; label: string; desc: string; color: string }[] = [
@@ -85,12 +86,7 @@ export default function NewTicketForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="form-label">Customer <span className="text-red-500">*</span></label>
-              <select className="form-input" value={form.customer_id} onChange={e => set('customer_id', e.target.value)} required>
-                <option value="">Select customer...</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}{c.contact_person ? ` — ${c.contact_person}` : ''}</option>
-                ))}
-              </select>
+              <CustomerCombobox customers={customers} value={form.customer_id} onChange={id => set('customer_id', id)} required />
             </div>
             <div>
               <label className="form-label">Product / Device <span className="text-slate-400 font-normal">(optional)</span></label>

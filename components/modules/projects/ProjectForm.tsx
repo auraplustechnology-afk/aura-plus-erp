@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Trash2, Loader2, Save, UserPlus, Package } from 'lucide-react'
 import { createProject, updateProject } from '@/lib/actions/projects'
 import { formatCurrency } from '@/lib/utils/format'
+import CustomerCombobox from '@/components/modules/customers/CustomerCombobox'
 import type { Project } from '@/types'
 
 interface TechEntry { id: string; role: 'lead' | 'assistant' }
@@ -141,12 +142,7 @@ export default function ProjectForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="form-label">Customer <span className="text-red-500">*</span></label>
-              <select className="form-input" value={form.customer_id} onChange={e => setField('customer_id', e.target.value)} required>
-                <option value="">Select customer...</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}{c.contact_person ? ` — ${c.contact_person}` : ''}</option>
-                ))}
-              </select>
+              <CustomerCombobox customers={customers} value={form.customer_id} onChange={id => setField('customer_id', id)} required />
             </div>
             <div className="sm:col-span-2">
               <label className="form-label">Project Name <span className="text-red-500">*</span></label>

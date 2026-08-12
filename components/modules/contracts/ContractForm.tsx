@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Plus, Trash2, FileCheck } from 'lucide-react'
 import { createContract, updateContract } from '@/lib/actions/contracts'
 import { formatCurrency } from '@/lib/utils/format'
+import CustomerCombobox from '@/components/modules/customers/CustomerCombobox'
 import type { MaintenanceContract, BillingCycle } from '@/types'
 
 interface CoveredProduct { name: string; description: string }
@@ -98,12 +99,7 @@ export default function ContractForm({ mode, contract, customers, preselectedCus
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="form-label">Customer <span className="text-red-500">*</span></label>
-              <select className="form-input" value={form.customer_id} onChange={e => set('customer_id', e.target.value)} required>
-                <option value="">Select customer...</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}{c.contact_person ? ` — ${c.contact_person}` : ''}</option>
-                ))}
-              </select>
+              <CustomerCombobox customers={customers} value={form.customer_id} onChange={id => set('customer_id', id)} required />
               {selectedCustomer && (
                 <div className="mt-1.5 text-xs text-slate-400">{selectedCustomer.contact_person}</div>
               )}
