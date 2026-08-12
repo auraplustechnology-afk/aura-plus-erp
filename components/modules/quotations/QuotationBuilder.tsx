@@ -9,6 +9,7 @@ import {
 import { createQuotation, updateQuotation } from '@/lib/actions/quotations'
 import { formatCurrency } from '@/lib/utils/format'
 import { createClient } from '@/lib/supabase/client'
+import CustomerCombobox from '@/components/modules/customers/CustomerCombobox'
 import type { Quotation, QuotationLine, Product, Customer, User } from '@/types'
 
 // ── Types ────────────────────────────────────────────────────
@@ -229,17 +230,7 @@ export default function QuotationBuilder({
         <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <label className="form-label">Customer <span className="text-red-500">*</span></label>
-            <select
-              className="form-input"
-              value={customerId}
-              onChange={e => setCustomerId(e.target.value)}
-              required
-            >
-              <option value="">Select customer...</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.company_name}{c.contact_person ? ` — ${c.contact_person}` : ''}</option>
-              ))}
-            </select>
+            <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} required />
             {selectedCustomer && (
               <div className="mt-2 p-3 bg-slate-50 dark:bg-[#1E2A3B] rounded-lg text-xs text-slate-500 space-y-0.5">
                 {selectedCustomer.contact_person && <div><strong>Contact:</strong> {selectedCustomer.contact_person}</div>}

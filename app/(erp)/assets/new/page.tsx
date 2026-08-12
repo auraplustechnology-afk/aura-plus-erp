@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createAsset } from '@/lib/actions/assets'
+import CustomerCombobox from '@/components/modules/customers/CustomerCombobox'
 
 interface Customer { id: string; company_name: string; contact_person: string | null }
 interface Project  { id: string; project_number: string; project_name: string }
@@ -118,10 +119,7 @@ export default function NewAssetPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="form-label">Customer <span className="text-red-500">*</span></label>
-              <select className="form-input" value={form.customer_id} onChange={e => set('customer_id', e.target.value)} required>
-                <option value="">Select customer...</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-              </select>
+              <CustomerCombobox customers={customers} value={form.customer_id} onChange={id => set('customer_id', id)} required />
             </div>
             <div>
               <label className="form-label">Linked Project <span className="text-slate-400 font-normal">(optional)</span></label>
