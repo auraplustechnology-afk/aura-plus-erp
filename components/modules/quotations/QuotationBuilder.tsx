@@ -169,6 +169,88 @@ export default function QuotationBuilder({
     }))
   }
 
+  // ── Shared description + product search field (desktop and mobile) ──
+  function renderProductSearchField(index: number, line: LineItem) {
+    return (
+      <div className="relative">
+        <div className="flex gap-1">
+          <input
+            className="form-input text-sm flex-1"
+            value={line.description}
+            onChange={e => updateLine(index, { description: e.target.value })}
+            placeholder={line.line_type === 'product' ? 'Product name or description...' : 'Description...'}
+            required
+          />
+          {line.line_type === 'product' && (
+            <button
+              type="button"
+              onClick={() => {
+                setProductSearchIndex(productSearchIndex === index ? null : index)
+                setProductQuery('')
+                setProductResults([])
+              }}
+              className={`px-2 rounded-lg border transition-colors ${
+                productSearchIndex === index
+                  ? 'bg-[#0066FF] border-[#0066FF] text-white'
+                  : 'border-[#E2E8F0] dark:border-[#1E2A3B] text-slate-400 hover:text-[#0066FF] hover:border-[#0066FF]'
+              }`}
+              title="Search inventory"
+            >
+              <Package className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Product search dropdown */}
+        {productSearchIndex === index && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0F1C2E] border border-[#E2E8F0] dark:border-[#1E2A3B] rounded-lg shadow-xl z-30">
+            <div className="p-2 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  autoFocus
+                  className="form-input pl-8 text-sm py-1.5"
+                  placeholder="Search products by name or SKU..."
+                  value={productQuery}
+                  onChange={e => setProductQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="max-h-52 overflow-y-auto">
+              {searchLoading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#0066FF]" />
+                </div>
+              )}
+              {!searchLoading && productResults.length === 0 && productQuery.length > 0 && (
+                <div className="px-4 py-3 text-sm text-slate-400">No products found</div>
+              )}
+              {!searchLoading && productQuery.length === 0 && (
+                <div className="px-4 py-3 text-sm text-slate-400">Type to search inventory...</div>
+              )}
+              {productResults.map(product => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => selectProduct(index, product)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-[#1E2A3B] transition-colors text-left"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-[#0A1628] dark:text-white">{product.product_name}</div>
+                    <div className="text-xs text-slate-400">{product.sku} · Stock: {product.quantity_in_stock}</div>
+                  </div>
+                  <span className="text-sm font-semibold text-[#0066FF] ml-4 flex-shrink-0">
+                    {formatCurrency(product.selling_price)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── Validate + Save ──────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -309,82 +391,7 @@ export default function QuotationBuilder({
                   </select>
 
                   {/* Description + product search */}
-                  <div className="relative">
-                    <div className="flex gap-1">
-                      <input
-                        className="form-input text-sm flex-1"
-                        value={line.description}
-                        onChange={e => updateLine(index, { description: e.target.value })}
-                        placeholder={line.line_type === 'product' ? 'Product name or description...' : 'Description...'}
-                        required
-                      />
-                      {line.line_type === 'product' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProductSearchIndex(productSearchIndex === index ? null : index)
-                            setProductQuery('')
-                            setProductResults([])
-                          }}
-                          className={`px-2 rounded-lg border transition-colors ${
-                            productSearchIndex === index
-                              ? 'bg-[#0066FF] border-[#0066FF] text-white'
-                              : 'border-[#E2E8F0] dark:border-[#1E2A3B] text-slate-400 hover:text-[#0066FF] hover:border-[#0066FF]'
-                          }`}
-                          title="Search inventory"
-                        >
-                          <Package className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Product search dropdown */}
-                    {productSearchIndex === index && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0F1C2E] border border-[#E2E8F0] dark:border-[#1E2A3B] rounded-lg shadow-xl z-30">
-                        <div className="p-2 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
-                          <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                            <input
-                              autoFocus
-                              className="form-input pl-8 text-sm py-1.5"
-                              placeholder="Search products by name or SKU..."
-                              value={productQuery}
-                              onChange={e => setProductQuery(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <div className="max-h-52 overflow-y-auto">
-                          {searchLoading && (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="w-4 h-4 animate-spin text-[#0066FF]" />
-                            </div>
-                          )}
-                          {!searchLoading && productResults.length === 0 && productQuery.length > 0 && (
-                            <div className="px-4 py-3 text-sm text-slate-400">No products found</div>
-                          )}
-                          {!searchLoading && productQuery.length === 0 && (
-                            <div className="px-4 py-3 text-sm text-slate-400">Type to search inventory...</div>
-                          )}
-                          {productResults.map(product => (
-                            <button
-                              key={product.id}
-                              type="button"
-                              onClick={() => selectProduct(index, product)}
-                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-[#1E2A3B] transition-colors text-left"
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-[#0A1628] dark:text-white">{product.product_name}</div>
-                                <div className="text-xs text-slate-400">{product.sku} · Stock: {product.quantity_in_stock}</div>
-                              </div>
-                              <span className="text-sm font-semibold text-[#0066FF] ml-4 flex-shrink-0">
-                                {formatCurrency(product.selling_price)}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {renderProductSearchField(index, line)}
 
                   {/* Qty */}
                   <input
@@ -438,10 +445,10 @@ export default function QuotationBuilder({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <select className="form-input text-sm" value={line.line_type} onChange={e => updateLine(index, { line_type: e.target.value as LineItem['line_type'] })}>
+                  <select className="form-input text-sm" value={line.line_type} onChange={e => updateLine(index, { line_type: e.target.value as LineItem['line_type'], product_id: null })}>
                     {LINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
-                  <input className="form-input text-sm" value={line.description} onChange={e => updateLine(index, { description: e.target.value })} placeholder="Description..." required />
+                  {renderProductSearchField(index, line)}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="form-label text-xs">Qty</label>

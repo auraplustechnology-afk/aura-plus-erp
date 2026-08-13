@@ -136,6 +136,57 @@ export default function InvoiceBuilder({
     }))
   }
 
+  // ── Shared description + product search field (desktop and mobile) ──
+  function renderProductSearchField(index: number, line: LineItem) {
+    return (
+      <div className="relative">
+        <div className="flex gap-1">
+          <input
+            className="form-input text-sm flex-1"
+            value={line.description}
+            onChange={e => updateLine(index, { description: e.target.value })}
+            placeholder={line.line_type === 'product' ? 'Product name...' : 'Description...'}
+            required
+          />
+          {line.line_type === 'product' && (
+            <button
+              type="button"
+              onClick={() => { setProductSearchIndex(productSearchIndex === index ? null : index); setProductQuery(''); setProductResults([]) }}
+              className={`px-2 rounded-lg border transition-colors ${productSearchIndex === index ? 'bg-[#0066FF] border-[#0066FF] text-white' : 'border-[#E2E8F0] dark:border-[#1E2A3B] text-slate-400 hover:text-[#0066FF] hover:border-[#0066FF]'}`}
+              title="Search inventory"
+            >
+              <Package className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {productSearchIndex === index && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0F1C2E] border border-[#E2E8F0] dark:border-[#1E2A3B] rounded-lg shadow-xl z-30">
+            <div className="p-2 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input autoFocus className="form-input pl-8 text-sm py-1.5" placeholder="Search by name or SKU..." value={productQuery} onChange={e => setProductQuery(e.target.value)} />
+              </div>
+            </div>
+            <div className="max-h-52 overflow-y-auto">
+              {searchLoading && <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-[#0066FF]" /></div>}
+              {!searchLoading && productResults.length === 0 && productQuery.length > 0 && <div className="px-4 py-3 text-sm text-slate-400">No products found</div>}
+              {!searchLoading && productQuery.length === 0 && <div className="px-4 py-3 text-sm text-slate-400">Type to search inventory...</div>}
+              {productResults.map(p => (
+                <button key={p.id} type="button" onClick={() => selectProduct(index, p)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-[#1E2A3B] transition-colors text-left">
+                  <div>
+                    <div className="text-sm font-medium text-[#0A1628] dark:text-white">{p.product_name}</div>
+                    <div className="text-xs text-slate-400">{p.sku} · Stock: {p.quantity_in_stock}</div>
+                  </div>
+                  <span className="text-sm font-semibold text-[#0066FF] ml-4 flex-shrink-0">{formatCurrency(p.selling_price)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!customerId) { setError('Please select a customer'); return }
@@ -282,51 +333,7 @@ export default function InvoiceBuilder({
                   </select>
 
                   {/* Description + product search */}
-                  <div className="relative">
-                    <div className="flex gap-1">
-                      <input
-                        className="form-input text-sm flex-1"
-                        value={line.description}
-                        onChange={e => updateLine(index, { description: e.target.value })}
-                        placeholder={line.line_type === 'product' ? 'Product name...' : 'Description...'}
-                        required
-                      />
-                      {line.line_type === 'product' && (
-                        <button
-                          type="button"
-                          onClick={() => { setProductSearchIndex(productSearchIndex === index ? null : index); setProductQuery(''); setProductResults([]) }}
-                          className={`px-2 rounded-lg border transition-colors ${productSearchIndex === index ? 'bg-[#0066FF] border-[#0066FF] text-white' : 'border-[#E2E8F0] dark:border-[#1E2A3B] text-slate-400 hover:text-[#0066FF] hover:border-[#0066FF]'}`}
-                          title="Search inventory"
-                        >
-                          <Package className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    {productSearchIndex === index && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0F1C2E] border border-[#E2E8F0] dark:border-[#1E2A3B] rounded-lg shadow-xl z-30">
-                        <div className="p-2 border-b border-[#E2E8F0] dark:border-[#1E2A3B]">
-                          <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                            <input autoFocus className="form-input pl-8 text-sm py-1.5" placeholder="Search by name or SKU..." value={productQuery} onChange={e => setProductQuery(e.target.value)} />
-                          </div>
-                        </div>
-                        <div className="max-h-52 overflow-y-auto">
-                          {searchLoading && <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-[#0066FF]" /></div>}
-                          {!searchLoading && productResults.length === 0 && productQuery.length > 0 && <div className="px-4 py-3 text-sm text-slate-400">No products found</div>}
-                          {!searchLoading && productQuery.length === 0 && <div className="px-4 py-3 text-sm text-slate-400">Type to search inventory...</div>}
-                          {productResults.map(p => (
-                            <button key={p.id} type="button" onClick={() => selectProduct(index, p)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-[#1E2A3B] transition-colors text-left">
-                              <div>
-                                <div className="text-sm font-medium text-[#0A1628] dark:text-white">{p.product_name}</div>
-                                <div className="text-xs text-slate-400">{p.sku} · Stock: {p.quantity_in_stock}</div>
-                              </div>
-                              <span className="text-sm font-semibold text-[#0066FF] ml-4 flex-shrink-0">{formatCurrency(p.selling_price)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {renderProductSearchField(index, line)}
 
                   <input type="number" min="0" step="0.01" className="form-input text-sm text-right" value={line.quantity}
                     onChange={e => updateLine(index, { quantity: parseFloat(e.target.value) || 0 })} />
@@ -350,10 +357,10 @@ export default function InvoiceBuilder({
                     <span className="text-xs font-semibold text-slate-400">Line {index + 1}</span>
                     <button type="button" onClick={() => removeLine(index)} disabled={lines.length === 1} className="text-red-400 hover:text-red-600 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
                   </div>
-                  <select className="form-input text-sm" value={line.line_type} onChange={e => updateLine(index, { line_type: e.target.value as LineItem['line_type'] })}>
+                  <select className="form-input text-sm" value={line.line_type} onChange={e => updateLine(index, { line_type: e.target.value as LineItem['line_type'], product_id: null })}>
                     {LINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
-                  <input className="form-input text-sm" value={line.description} onChange={e => updateLine(index, { description: e.target.value })} placeholder="Description..." required />
+                  {renderProductSearchField(index, line)}
                   <div className="grid grid-cols-2 gap-2">
                     <div><label className="form-label text-xs">Qty</label><input type="number" className="form-input text-sm" value={line.quantity} onChange={e => updateLine(index, { quantity: parseFloat(e.target.value) || 0 })} /></div>
                     <div><label className="form-label text-xs">Unit Price</label><input type="number" className="form-input text-sm" value={line.unit_price} onChange={e => updateLine(index, { unit_price: parseFloat(e.target.value) || 0 })} /></div>
