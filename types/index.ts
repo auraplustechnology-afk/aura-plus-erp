@@ -9,9 +9,12 @@ export type LeadStage = 'new_lead' | 'contacted' | 'follow_up' | 'quote_sent' | 
 export type LeadSource = 'facebook' | 'referral' | 'walk_in' | 'phone_call' | 'email' | 'website' | 'other'
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 export type LineType = 'product' | 'service' | 'labour' | 'installation'
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue'
-export type InvoiceType = 'standard' | 'proforma'
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'cheque'
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'voided'
+export type InvoiceType = 'standard' | 'proforma' | 'pos'
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money' | 'cheque' | 'card'
+export type PosShiftStatus = 'open' | 'closed'
+export type PosCashMovementType = 'cash_in' | 'cash_out'
+export type PosHoldStatus = 'held' | 'resumed' | 'cancelled'
 export type ProjectStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed'
 export type TechnicianRole = 'lead' | 'assistant'
 export type TicketStatus = 'open' | 'assigned' | 'in_progress' | 'waiting_for_client' | 'resolved' | 'closed'
@@ -142,6 +145,10 @@ export interface Invoice {
   paid_at: string | null
   stock_deducted: boolean
   stock_deducted_at: string | null
+  shift_id: string | null
+  voided_at: string | null
+  voided_by: string | null
+  void_reason: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -176,6 +183,79 @@ export interface Payment {
   recorded_by: string | null
   created_at: string
   recorded_by_user?: Pick<User, 'id' | 'full_name'>
+}
+
+export interface PosShift {
+  id: string
+  opened_by: string
+  opening_float: number
+  status: PosShiftStatus
+  opened_at: string
+  closed_at: string | null
+  closed_by: string | null
+  expected_cash: number | null
+  closing_cash_counted: number | null
+  cash_variance: number | null
+  notes: string | null
+  created_at: string
+  // Joined
+  opened_by_user?: Pick<User, 'id' | 'full_name'>
+  closed_by_user?: Pick<User, 'id' | 'full_name'>
+}
+
+export interface PosCashMovement {
+  id: string
+  shift_id: string
+  movement_type: PosCashMovementType
+  amount: number
+  reason: string
+  recorded_by: string | null
+  created_at: string
+  recorded_by_user?: Pick<User, 'id' | 'full_name'>
+}
+
+export interface PosHeldSale {
+  id: string
+  hold_reference: string
+  shift_id: string
+  customer_id: string | null
+  cart: unknown
+  note: string | null
+  status: PosHoldStatus
+  held_by: string | null
+  held_at: string
+  resumed_at: string | null
+  cancelled_at: string | null
+  customer?: Pick<Customer, 'id' | 'company_name'>
+  held_by_user?: Pick<User, 'id' | 'full_name'>
+}
+
+export interface PosRefund {
+  id: string
+  refund_number: string
+  invoice_id: string
+  shift_id: string | null
+  refund_method: PaymentMethod
+  amount: number
+  reason: string
+  payment_id: string | null
+  processed_by: string | null
+  created_at: string
+  invoice?: Pick<Invoice, 'id' | 'invoice_number' | 'total' | 'customer_id'>
+  processed_by_user?: Pick<User, 'id' | 'full_name'>
+  lines?: PosRefundLine[]
+}
+
+export interface PosRefundLine {
+  id: string
+  refund_id: string
+  invoice_line_id: string
+  product_id: string | null
+  quantity: number
+  amount: number
+  restocked: boolean
+  created_at: string
+  product?: Pick<Product, 'id' | 'sku' | 'product_name'>
 }
 
 export interface ProductCategory {

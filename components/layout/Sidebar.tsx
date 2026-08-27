@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, FileText, Receipt, Package, DollarSign,
   FolderKanban, Headphones, BarChart3, Settings,
   UserCog, Wrench, FileCheck, Shield, ChevronRight, AlertCircle,
-  X
+  X, ShoppingCart
 } from 'lucide-react'
 import type { User, UserRole } from '@/types'
 
@@ -59,6 +59,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/invoices',
     icon: <Receipt className="w-4 h-4" />,
     roles: ['super_admin', 'accountant', 'manager', 'sales'],
+  },
+  {
+    label: 'Point of Sale',
+    href: '/pos',
+    icon: <ShoppingCart className="w-4 h-4" />,
+    roles: ['super_admin', 'sales', 'manager', 'accountant'],
   },
   {
     label: 'Expenses',

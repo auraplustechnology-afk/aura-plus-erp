@@ -6,11 +6,15 @@ export type LogAction =
   | 'payment_recorded' | 'stock_adjusted' | 'login' | 'logout'
   | 'converted' | 'password_reset' | 'deactivated' | 'activated'
   | 'setup_completed'
+  | 'voided' | 'refunded' | 'discount_applied'
+  | 'shift_opened' | 'shift_closed' | 'cash_in' | 'cash_out'
+  | 'sale_held' | 'sale_resumed'
 
 export type LogModule =
   | 'lead' | 'customer' | 'quotation' | 'invoice' | 'payment'
   | 'product' | 'project' | 'ticket' | 'contract' | 'user'
   | 'stock_adjustment' | 'settings'
+  | 'pos_sale' | 'shift' | 'refund' | 'held_sale'
 
 // ── Human-readable action labels for display ────────────────
 export const ACTION_LABELS: Record<string, string> = {
@@ -27,6 +31,15 @@ export const ACTION_LABELS: Record<string, string> = {
   deactivated:      'Deactivated',
   activated:        'Activated',
   setup_completed:  'Setup Completed',
+  voided:           'Voided',
+  refunded:         'Refunded',
+  discount_applied: 'Discount Applied',
+  shift_opened:     'Shift Opened',
+  shift_closed:     'Shift Closed',
+  cash_in:          'Cash In',
+  cash_out:         'Cash Out',
+  sale_held:        'Sale Held',
+  sale_resumed:     'Sale Resumed',
 }
 
 export const MODULE_LABELS: Record<string, string> = {
@@ -42,6 +55,10 @@ export const MODULE_LABELS: Record<string, string> = {
   user:             'User',
   stock_adjustment: 'Stock',
   settings:         'Settings',
+  pos_sale:         'POS Sale',
+  shift:            'POS Shift',
+  refund:           'Refund',
+  held_sale:        'Held Sale',
 }
 
 export const ACTION_COLORS: Record<string, string> = {
@@ -58,6 +75,15 @@ export const ACTION_COLORS: Record<string, string> = {
   deactivated:      'badge-danger',
   activated:        'badge-success',
   setup_completed:  'badge-success',
+  voided:           'badge-danger',
+  refunded:         'badge-warning',
+  discount_applied: 'badge-info',
+  shift_opened:     'badge-success',
+  shift_closed:     'badge-default',
+  cash_in:          'badge-success',
+  cash_out:         'badge-warning',
+  sale_held:        'badge-default',
+  sale_resumed:     'badge-info',
 }
 
 export const MODULE_ICONS: Record<string, string> = {
@@ -73,4 +99,8 @@ export const MODULE_ICONS: Record<string, string> = {
   user:             '👥',
   stock_adjustment: '📊',
   settings:         '⚙️',
+  pos_sale:         '🛒',
+  shift:            '🕒',
+  refund:           '↩️',
+  held_sale:        '⏸️',
 }
