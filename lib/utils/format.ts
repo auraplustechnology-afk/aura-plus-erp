@@ -84,6 +84,7 @@ export function getInvoiceStatusClass(status: string): string {
     paid: 'badge-success',
     partially_paid: 'badge-warning',
     overdue: 'badge-danger',
+    voided: 'badge-danger',
   }
   return map[status] ?? 'badge-default'
 }

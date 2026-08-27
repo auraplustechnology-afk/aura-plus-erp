@@ -65,7 +65,12 @@ export default function InvoiceBuilder({
   const supabase = createClient()
 
   const [customerId, setCustomerId] = useState(invoice?.customer_id ?? preselectedCustomerId ?? '')
-  const [type, setType] = useState<'standard' | 'proforma'>(invoice?.invoice_type ?? invoiceType ?? 'standard')
+  // This builder only ever creates/edits standard or proforma invoices — POS
+  // sales are created through the till, not here — so a 'pos' invoice_type
+  // (added for POS) is narrowed away rather than widening this state's type.
+  const [type, setType] = useState<'standard' | 'proforma'>(
+    invoice?.invoice_type === 'proforma' || invoiceType === 'proforma' ? 'proforma' : 'standard'
+  )
   const [discountAmount, setDiscountAmount] = useState(invoice?.discount_amount ?? 0)
   const [totNote, setTotNote] = useState(invoice?.tot_note ?? 'Subject to TOT')
   const [notes, setNotes] = useState(invoice?.notes ?? defaultNotes)

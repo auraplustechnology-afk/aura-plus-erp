@@ -9,6 +9,7 @@ const ROUTE_ROLES: Record<string, UserRole[]> = {
   '/quotations':    ['super_admin', 'sales', 'accountant', 'manager'],
   '/invoices':      ['super_admin', 'accountant', 'manager', 'sales'],
   '/inventory':     ['super_admin', 'sales', 'accountant', 'manager'],
+  '/pos':           ['super_admin', 'sales', 'manager', 'accountant'],
   '/projects':      ['super_admin', 'sales', 'manager'],
   '/tickets':       ['super_admin', 'sales', 'manager'],
   '/contracts':     ['super_admin', 'sales', 'accountant', 'manager'],
