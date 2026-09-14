@@ -10,6 +10,7 @@ export default function ProductEditModal({ product, categories, suppliers }: {
     id: string; sku: string; product_name: string; category_id: string | null;
     supplier_id: string | null; cost_price: number; selling_price: number;
     reorder_level: number; unit_of_measure: string; description: string | null; is_active: boolean
+    barcode?: string | null
   }
   categories: { id: string; name: string }[]
   suppliers: { id: string; company_name: string }[]
@@ -24,6 +25,7 @@ export default function ProductEditModal({ product, categories, suppliers }: {
     cost_price: product.cost_price, selling_price: product.selling_price,
     reorder_level: product.reorder_level, unit_of_measure: product.unit_of_measure,
     description: product.description ?? '', is_active: product.is_active,
+    barcode: product.barcode ?? '',
   })
 
   function set(key: string, value: string | number | boolean) {
@@ -64,6 +66,7 @@ export default function ProductEditModal({ product, categories, suppliers }: {
                   </select>
                 </div>
                 <div className="col-span-2"><label className="form-label">Product Name</label><input className="form-input" value={form.product_name} onChange={e => set('product_name', e.target.value)} required /></div>
+                <div className="col-span-2"><label className="form-label">Barcode</label><input className="form-input font-mono" value={form.barcode} onChange={e => set('barcode', e.target.value)} placeholder="Scan or type..." /></div>
                 <div><label className="form-label">Category</label>
                   <select className="form-input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
                     <option value="">None</option>
