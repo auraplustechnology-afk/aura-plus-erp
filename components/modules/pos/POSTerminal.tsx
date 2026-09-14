@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, PauseCircle, Loader2,
   Printer, RotateCcw, X, PackageX, ListPlus, Clock,
-  Wallet, History, BarChart3, LogOut,
+  Wallet, History, BarChart3, LogOut, Camera,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
 import { completePOSSale, type POSCartLine } from '@/lib/actions/pos'
@@ -15,6 +16,10 @@ import BarcodeScanInput from '@/components/modules/pos/BarcodeScanInput'
 import CashMovementModal from '@/components/modules/pos/CashMovementModal'
 import ShiftCloseModal from '@/components/modules/pos/ShiftCloseModal'
 import type { PaymentMethod, PosShift, PosHeldSale, ProductCategory, User, UserRole } from '@/types'
+
+// The camera scanner pulls in the ZXing decoder bundle (sizeable) — only
+// load it when someone actually opens the camera, not on every POS visit.
+const CameraBarcodeScanner = dynamic(() => import('@/components/modules/pos/CameraBarcodeScanner'), { ssr: false })
 
 interface POSProduct {
   id: string
@@ -95,6 +100,7 @@ export default function POSTerminal({
 
   const [showCashModal, setShowCashModal] = useState(false)
   const [showCloseShiftModal, setShowCloseShiftModal] = useState(false)
+  const [showCameraScanner, setShowCameraScanner] = useState(false)
 
   async function refreshHeldSales() {
     const result = await listHeldSales(shift.id)
@@ -289,6 +295,13 @@ export default function POSTerminal({
           <div className="sm:w-72">
             <BarcodeScanInput onScan={handleScan} />
           </div>
+          <button
+            type="button" onClick={() => setShowCameraScanner(true)}
+            className="btn-secondary"
+            title="Scan with camera"
+          >
+            <Camera className="w-4 h-4" /> Camera
+          </button>
           <button
             type="button" onClick={() => setShowHeldPanel(true)}
             className="btn-secondary relative"
@@ -548,6 +561,13 @@ export default function POSTerminal({
         </div>
       )}
     </div>
+
+      {showCameraScanner && (
+        <CameraBarcodeScanner
+          onScan={handleScan}
+          onClose={() => setShowCameraScanner(false)}
+        />
+      )}
 
       {showCashModal && (
         <CashMovementModal
