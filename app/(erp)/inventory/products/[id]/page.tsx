@@ -59,6 +59,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <h1 className="text-2xl font-bold text-[#0A1628] dark:text-white">{product.product_name}</h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="font-mono text-xs text-slate-400 bg-slate-100 dark:bg-[#1E2A3B] px-2 py-0.5 rounded">{product.sku}</span>
+                {product.barcode && (
+                  <span className="font-mono text-xs text-slate-400 bg-slate-100 dark:bg-[#1E2A3B] px-2 py-0.5 rounded">⎋ {product.barcode}</span>
+                )}
                 {cat && <span className="badge badge-info text-xs">{cat.name}</span>}
                 {!product.is_active && <span className="badge badge-danger text-xs">Inactive</span>}
                 {isOut && <span className="badge badge-danger text-xs">Out of Stock</span>}
@@ -177,6 +180,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <div>
               <div className="text-xs text-slate-400 mb-1">Unit of Measure</div>
               <div className="text-[#0A1628] dark:text-slate-200 capitalize">{product.unit_of_measure}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 mb-1">Barcode</div>
+              <div className="text-[#0A1628] dark:text-slate-200 font-mono">
+                {product.barcode || <span className="text-slate-400 italic font-sans">Not set — scan it at the POS till or add it here</span>}
+              </div>
             </div>
             {product.cost_price > 0 && product.selling_price > 0 && (
               <div>

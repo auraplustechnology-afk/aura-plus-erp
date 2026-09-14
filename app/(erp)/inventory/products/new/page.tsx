@@ -19,7 +19,7 @@ export default function NewProductPage() {
   const [form, setForm] = useState({
     sku: '', product_name: '', category_id: '', supplier_id: '',
     cost_price: 0, selling_price: 0, quantity_in_stock: 0,
-    reorder_level: 5, unit_of_measure: 'unit', description: '',
+    reorder_level: 5, unit_of_measure: 'unit', description: '', barcode: '',
   })
 
   useEffect(() => {
@@ -32,6 +32,13 @@ export default function NewProductPage() {
       setSuppliers(sups.data ?? [])
     }
     load()
+  }, [])
+
+  // Arriving from a POS scan that didn't match any product carries the
+  // scanned code as ?barcode=... so it's already filled in here.
+  useEffect(() => {
+    const barcode = new URLSearchParams(window.location.search).get('barcode')
+    if (barcode) setForm(p => ({ ...p, barcode }))
   }, [])
 
   function set(key: string, value: string | number) {
@@ -61,6 +68,7 @@ export default function NewProductPage() {
       category_id: form.category_id || null,
       supplier_id: form.supplier_id || null,
       description: form.description || null,
+      barcode: form.barcode || null,
     })
 
     if (result.error) { setError(result.error); setLoading(false); return }
@@ -103,6 +111,10 @@ export default function NewProductPage() {
             <div className="sm:col-span-2">
               <label className="form-label">Product Name <span className="text-red-500">*</span></label>
               <input className="form-input" value={form.product_name} onChange={e => set('product_name', e.target.value)} placeholder="e.g. AI Face Time Attendance Machine" required />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="form-label">Barcode</label>
+              <input className="form-input font-mono" value={form.barcode} onChange={e => set('barcode', e.target.value)} placeholder="Scan it now, or leave blank and add it later" />
             </div>
             <div className="sm:col-span-2">
               <label className="form-label">Description</label>

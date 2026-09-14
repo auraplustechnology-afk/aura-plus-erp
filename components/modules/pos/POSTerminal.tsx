@@ -2,19 +2,25 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, PauseCircle, Loader2,
   Printer, RotateCcw, X, PackageX, ListPlus, Clock,
-  Wallet, History, BarChart3, LogOut,
+  Wallet, History, BarChart3, LogOut, Camera,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
 import { completePOSSale, type POSCartLine } from '@/lib/actions/pos'
 import { holdSale, listHeldSales, resumeHeldSale, cancelHeldSale } from '@/lib/actions/pos-holds'
 import CustomerCombobox, { type CustomerOption } from '@/components/modules/customers/CustomerCombobox'
 import BarcodeScanInput from '@/components/modules/pos/BarcodeScanInput'
+import UnmatchedBarcodeModal from '@/components/modules/pos/UnmatchedBarcodeModal'
 import CashMovementModal from '@/components/modules/pos/CashMovementModal'
 import ShiftCloseModal from '@/components/modules/pos/ShiftCloseModal'
 import type { PaymentMethod, PosShift, PosHeldSale, ProductCategory, User, UserRole } from '@/types'
+
+// The camera scanner pulls in the ZXing decoder bundle (sizeable) — only
+// load it when someone actually opens the camera, not on every POS visit.
+const CameraBarcodeScanner = dynamic(() => import('@/components/modules/pos/CameraBarcodeScanner'), { ssr: false })
 
 interface POSProduct {
   id: string
@@ -55,7 +61,7 @@ function nextKey() {
 
 export default function POSTerminal({
   user,
-  products,
+  products: initialProducts,
   categories,
   customers,
   walkInCustomerId,
@@ -70,9 +76,16 @@ export default function POSTerminal({
 }) {
   const canDiscount = SUPERVISOR_ROLES.includes(user.role)
 
+  // Local, mutable copy — when a scanned code gets linked to a product
+  // (see handleBarcodeLinked), that product's barcode is updated here too
+  // so the very next scan of the same code resolves instantly, with no
+  // page reload needed.
+  const [products, setProducts] = useState<POSProduct[]>(initialProducts)
+
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [scanError, setScanError] = useState('')
+  const [unmatchedCode, setUnmatchedCode] = useState<string | null>(null)
 
   const [cart, setCart] = useState<CartLine[]>([])
   const [customerId, setCustomerId] = useState(walkInCustomerId)
@@ -95,6 +108,7 @@ export default function POSTerminal({
 
   const [showCashModal, setShowCashModal] = useState(false)
   const [showCloseShiftModal, setShowCloseShiftModal] = useState(false)
+  const [showCameraScanner, setShowCameraScanner] = useState(false)
 
   async function refreshHeldSales() {
     const result = await listHeldSales(shift.id)
@@ -141,8 +155,11 @@ export default function POSTerminal({
     const lower = code.toLowerCase()
     const match = products.find(p => (p.barcode && p.barcode.toLowerCase() === lower) || p.sku.toLowerCase() === lower)
     if (!match) {
-      setScanError(`No product found for "${code}"`)
-      setTimeout(() => setScanError(''), 3000)
+      // Not a dead end — let the cashier save this code against a product
+      // right now, so it's already set up for every future scan. Close the
+      // camera first so its full-screen view doesn't sit behind the modal.
+      setShowCameraScanner(false)
+      setUnmatchedCode(code)
       return
     }
     if (match.quantity_in_stock < 1) {
@@ -151,6 +168,16 @@ export default function POSTerminal({
       return
     }
     addToCart(match)
+  }
+
+  // A scanned code just got saved onto an existing product — update the
+  // local catalog so it's matched instantly from here on, and add the
+  // product to the cart since that's what the cashier was trying to do.
+  function handleBarcodeLinked(productId: string, barcode: string) {
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, barcode } : p))
+    setUnmatchedCode(null)
+    const product = products.find(p => p.id === productId)
+    if (product) addToCart({ ...product, barcode })
   }
 
   function addCustomLine() {
@@ -289,6 +316,13 @@ export default function POSTerminal({
           <div className="sm:w-72">
             <BarcodeScanInput onScan={handleScan} />
           </div>
+          <button
+            type="button" onClick={() => setShowCameraScanner(true)}
+            className="btn-secondary"
+            title="Scan with camera"
+          >
+            <Camera className="w-4 h-4" /> Camera
+          </button>
           <button
             type="button" onClick={() => setShowHeldPanel(true)}
             className="btn-secondary relative"
@@ -548,6 +582,22 @@ export default function POSTerminal({
         </div>
       )}
     </div>
+
+      {showCameraScanner && (
+        <CameraBarcodeScanner
+          onScan={handleScan}
+          onClose={() => setShowCameraScanner(false)}
+        />
+      )}
+
+      {unmatchedCode && (
+        <UnmatchedBarcodeModal
+          code={unmatchedCode}
+          products={products}
+          onClose={() => setUnmatchedCode(null)}
+          onLinked={handleBarcodeLinked}
+        />
+      )}
 
       {showCashModal && (
         <CashMovementModal

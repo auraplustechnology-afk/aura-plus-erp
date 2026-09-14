@@ -15,6 +15,7 @@ export async function createProduct(input: {
   reorder_level: number
   unit_of_measure?: string
   description?: string | null
+  barcode?: string | null
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,9 +25,14 @@ export async function createProduct(input: {
   const { data: existing } = await supabase.from('products').select('id').eq('sku', input.sku).single()
   if (existing) return { error: `SKU "${input.sku}" already exists` }
 
+  if (input.barcode) {
+    const { data: existingBarcode } = await supabase.from('products').select('id, product_name').eq('barcode', input.barcode).maybeSingle()
+    if (existingBarcode) return { error: `Barcode "${input.barcode}" is already saved against ${existingBarcode.product_name}` }
+  }
+
   const { data, error } = await supabase
     .from('products')
-    .insert({ ...input, created_by: user.id, unit_of_measure: input.unit_of_measure ?? 'unit' })
+    .insert({ ...input, barcode: input.barcode || null, created_by: user.id, unit_of_measure: input.unit_of_measure ?? 'unit' })
     .select()
     .single()
 
@@ -68,13 +74,22 @@ export async function updateProduct(id: string, input: Partial<{
   unit_of_measure: string
   description: string | null
   is_active: boolean
+  barcode: string | null
 }>) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
+  if (input.barcode) {
+    const { data: existingBarcode } = await supabase
+      .from('products').select('id, product_name').eq('barcode', input.barcode).neq('id', id).maybeSingle()
+    if (existingBarcode) return { error: `Barcode "${input.barcode}" is already saved against ${existingBarcode.product_name}` }
+  }
+
   const { data: before } = await supabase.from('products').select('*').eq('id', id).single()
-  const { data, error } = await supabase.from('products').update(input).eq('id', id).select().single()
+  const updatePayload = { ...input }
+  if ('barcode' in input) updatePayload.barcode = input.barcode || null
+  const { data, error } = await supabase.from('products').update(updatePayload).eq('id', id).select().single()
   if (error) return { error: error.message }
 
   await supabase.from('activity_logs').insert({
@@ -85,6 +100,40 @@ export async function updateProduct(id: string, input: Partial<{
 
   revalidatePath('/inventory')
   revalidatePath(`/inventory/products/${id}`)
+  return { data }
+}
+
+// ── Link a scanned barcode to an existing product ─────────────
+// Used by the POS till when a scan doesn't match any product yet —
+// saves the code permanently so the next scan resolves instantly.
+export async function linkBarcodeToProduct(productId: string, barcode: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const trimmed = barcode.trim()
+  if (!trimmed) return { error: 'Barcode is empty' }
+
+  const { data: existingBarcode } = await supabase
+    .from('products').select('id, product_name').eq('barcode', trimmed).neq('id', productId).maybeSingle()
+  if (existingBarcode) return { error: `Barcode "${trimmed}" is already saved against ${existingBarcode.product_name}` }
+
+  const { data: before } = await supabase.from('products').select('product_name, barcode').eq('id', productId).single()
+  if (!before) return { error: 'Product not found' }
+
+  const { data, error } = await supabase
+    .from('products').update({ barcode: trimmed }).eq('id', productId).select().single()
+  if (error) return { error: error.message }
+
+  await supabase.from('activity_logs').insert({
+    user_id: user.id, action: 'updated', entity_type: 'product',
+    entity_id: productId, entity_label: before.product_name,
+    old_values: { barcode: before.barcode }, new_values: { barcode: trimmed },
+  })
+
+  revalidatePath('/inventory')
+  revalidatePath(`/inventory/products/${productId}`)
+  revalidatePath('/pos')
   return { data }
 }
 

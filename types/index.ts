@@ -291,6 +291,7 @@ export interface Product {
   unit_of_measure: string
   description: string | null
   image_url: string | null
+  barcode: string | null
   is_active: boolean
   created_by: string | null
   created_at: string
